@@ -130,11 +130,9 @@ fun SettingsScreen(vm: NudgeViewModel) {
                 Settings.describeInterval(Settings.sliderToMillis(slider)).replaceFirstChar { it.uppercase() },
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary,
             )
-            Slider(
-                value = slider,
-                onValueChange = { slider = it },
-                onValueChangeFinished = { vm.setMeanInterval(Settings.sliderToMillis(slider)) },
-            )
+            SliderGuard(value = slider, onCommit = { slider = it }, onFinished = { vm.setMeanInterval(Settings.sliderToMillis(slider)) }) { onChange, onFinished ->
+                Slider(value = slider, onValueChange = onChange, onValueChangeFinished = onFinished)
+            }
             Text(
                 "Timing stays random: this only changes how often it happens on average.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -161,17 +159,17 @@ fun SettingsScreen(vm: NudgeViewModel) {
             Text("Active hours", style = MaterialTheme.typography.bodyLarge)
             Text("${hourLabel(window.start.toInt())} – ${hourLabel(window.endInclusive.toInt())}",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
-            RangeSlider(
+            SliderGuard(
                 value = window,
-                onValueChange = { r ->
+                onCommit = { r ->
                     val s = r.start.toInt().coerceIn(0, 23)
                     val e = r.endInclusive.toInt().coerceIn(s + 1, 24)
                     window = s.toFloat()..e.toFloat()
                 },
-                valueRange = 0f..24f,
-                steps = 23,
-                onValueChangeFinished = { vm.setActiveWindow(window.start.toInt(), window.endInclusive.toInt()) },
-            )
+                onFinished = { vm.setActiveWindow(window.start.toInt(), window.endInclusive.toInt()) },
+            ) { onChange, onFinished ->
+                RangeSlider(value = window, onValueChange = onChange, valueRange = 0f..24f, steps = 23, onValueChangeFinished = onFinished)
+            }
             Text("Random reminders never fire outside this window. Times follow the device time zone (${zoneLabel()}).",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
