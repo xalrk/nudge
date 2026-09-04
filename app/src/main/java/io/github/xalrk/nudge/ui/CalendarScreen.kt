@@ -154,10 +154,7 @@ fun CalendarScreen(vm: NudgeViewModel, onAdd: (LocalDate) -> Unit, onOpen: (Long
                     IconButton(onClick = { month = ym.plusMonths(1).toString() }) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Next month") }
                 }
                 MonthGrid(ym, selectedDate, today, dots = dayDots) { selected = it.toString() }
-                if (ym != YearMonth.now() || selectedDate != today) {
-                    TextButton(onClick = { month = YearMonth.now().toString(); selected = today.toString() }, Modifier.padding(horizontal = 8.dp)) { Text("Today") }
-                }
-                HorizontalDivider()
+                HorizontalDivider(Modifier.padding(top = 16.dp))
                 Text(
                     selectedDate.format(Fmt.date),
                     Modifier.padding(16.dp, 12.dp, 16.dp, 4.dp),
