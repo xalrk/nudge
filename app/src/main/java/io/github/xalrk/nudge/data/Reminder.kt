@@ -55,6 +55,8 @@ data class Reminder(
     @ColumnInfo(defaultValue = "1") val vibrate: Boolean = true,
     /** Comma-separated ISO dates of occurrences removed from a repeating series. */
     @ColumnInfo(defaultValue = "") val excludedDates: String = "",
+    /** Random reminders only: personal average interval in millis, overriding the global slider. */
+    val meanOverrideMillis: Long? = null,
 ) {
     fun excludedDateSet(): Set<LocalDate> =
         excludedDates.split(',').filter { it.isNotBlank() }.mapNotNull { runCatching { LocalDate.parse(it.trim()) }.getOrNull() }.toSet()

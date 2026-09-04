@@ -16,7 +16,11 @@ class AlarmReceiver : BroadcastReceiver() {
                 when (intent.action) {
                     ACTION_SNOOZE -> {
                         val id = intent.getLongExtra(Notifier.EXTRA_REMINDER_ID, -1)
-                        if (id >= 0) ReminderEngine.snooze(app, id)
+                        val minutes = intent.getIntExtra(Notifier.EXTRA_SNOOZE_MINUTES, 10)
+                        if (id >= 0) {
+                            if (minutes == Notifier.SNOOZE_MORNING) ReminderEngine.snoozeUntilMorning(app, id)
+                            else ReminderEngine.snooze(app, id, minutes)
+                        }
                     }
                     else -> ReminderEngine.fireDue(app)
                 }

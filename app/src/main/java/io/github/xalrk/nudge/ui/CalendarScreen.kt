@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
@@ -59,7 +60,7 @@ import java.time.ZonedDateTime
 data class Occurrence(val at: ZonedDateTime, val title: String, val body: String, val reminderId: Long, val done: Boolean, val rule: String, val color: Int, val eventId: Long? = null)
 
 @Composable
-fun CalendarScreen(vm: NudgeViewModel, onAdd: (LocalDate) -> Unit, onOpen: (Long, LocalDate?) -> Unit) {
+fun CalendarScreen(vm: NudgeViewModel, onAdd: (LocalDate) -> Unit, onOpen: (Long, LocalDate?) -> Unit, onList: () -> Unit) {
     val reminders by vm.reminders.collectAsStateWithLifecycle()
     val history by vm.history.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
@@ -102,10 +103,16 @@ fun CalendarScreen(vm: NudgeViewModel, onAdd: (LocalDate) -> Unit, onOpen: (Long
     var orphan by remember { mutableStateOf<Occurrence?>(null) }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Nudge") }) },
+        topBar = {
+            TopAppBar(
+                title = { Text("Nudge") },
+                actions = { IconButton(onClick = onList) { Icon(Icons.Filled.Search, contentDescription = "All reminders") } },
+            )
+        },
         floatingActionButton = { FloatingActionButton(onClick = { onAdd(selectedDate) }, containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) { Icon(Icons.Filled.Add, contentDescription = "Add reminder") } },
     ) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding)) {
+            item { PauseBanner(settings, onResume = { vm.setPausedUntil(0L) }) }
             item {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { month = ym.minusMonths(1).toString() }) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Previous month") }

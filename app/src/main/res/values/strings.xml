@@ -7,4 +7,8 @@
     <string name="channel_reminders_silent">Reminders (silent)</string>
     <string name="channel_updates">App updates</string>
     <string name="channel_updates_desc">A notice when a newer Nudge is available</string>
+    <string name="shortcut_new">New reminder</string>
+    <string name="shortcut_new_long">Create a new reminder</string>
+    <string name="shortcut_roll">Roll a random one</string>
+    <string name="shortcut_roll_long">Send one random reminder now</string>
 </resources>

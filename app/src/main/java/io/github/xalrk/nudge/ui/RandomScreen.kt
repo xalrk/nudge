@@ -97,6 +97,7 @@ fun RandomScreen(vm: NudgeViewModel, onAdd: () -> Unit, onOpen: (Long) -> Unit) 
         floatingActionButton = { FloatingActionButton(onClick = onAdd, containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) { Icon(Icons.Filled.Add, contentDescription = "Add random reminder") } },
     ) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding)) {
+            item { PauseBanner(settings, onResume = { vm.setPausedUntil(0L) }) }
             item {
                 Column(Modifier.padding(16.dp)) {
                     val hours = "between ${hourLabel(settings.activeStartHour)} and ${hourLabel(settings.activeEndHour)}"
@@ -117,11 +118,12 @@ fun RandomScreen(vm: NudgeViewModel, onAdd: () -> Unit, onOpen: (Long) -> Unit) 
                     Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             items(random, key = { it.id }) { r ->
+                val rate = r.meanOverrideMillis?.let { " · " + Settings.describeInterval(it) } ?: ""
                 val sub = when {
                     !r.enabled -> "Paused"
                     r.nextAt == null -> "Waiting"
-                    settings.showNextRandomTime -> "Next " + Fmt.relative(r.nextAt) + " · " + Fmt.instant(r.nextAt).format(Fmt.dayTime)
-                    else -> "Sometime soon"
+                    settings.showNextRandomTime -> "Next " + Fmt.relative(r.nextAt) + " · " + Fmt.instant(r.nextAt).format(Fmt.dayTime) + rate
+                    else -> "Sometime soon$rate"
                 }
                 ReminderRow(r, subtitle = sub, color = vm.colorOf(r), onClick = { onOpen(r.id) }, onToggle = { vm.setEnabled(r.id, it) })
             }

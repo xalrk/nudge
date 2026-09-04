@@ -41,6 +41,8 @@ import io.github.xalrk.nudge.ui.theme.NudgeTheme
 import java.time.LocalDate
 
 class MainActivity : ComponentActivity() {
+    companion object { const val EXTRA_SHORTCUT = "shortcut" }
+
     private val vm: NudgeViewModel by lazy {
         androidx.lifecycle.ViewModelProvider(this)[NudgeViewModel::class.java]
     }
@@ -68,9 +70,14 @@ class MainActivity : ComponentActivity() {
         handleImportIntent(intent)
     }
 
-    /** Files opened with or shared to Nudge are imported. */
+    /** Files opened with or shared to Nudge are imported; launcher shortcuts are routed. */
     private fun handleImportIntent(intent: Intent?) {
         intent ?: return
+        when (intent.getStringExtra(EXTRA_SHORTCUT)) {
+            "new" -> vm.pendingAction.tryEmit("new")
+            "roll" -> { vm.fireRandomNow(); vm.pendingAction.tryEmit("random") }
+        }
+        intent.removeExtra(EXTRA_SHORTCUT)
         val uri = when (intent.action) {
             Intent.ACTION_VIEW -> intent.data
             Intent.ACTION_SEND -> intent.getParcelableExtra(Intent.EXTRA_STREAM) as? android.net.Uri
@@ -108,6 +115,14 @@ fun NudgeApp(vm: NudgeViewModel = viewModel()) {
     val showBar = tabs.any { it.route == currentRoute }
 
     LaunchedEffect(Unit) { vm.messages.collect { snackbar.showSnackbar(it) } }
+    LaunchedEffect(Unit) {
+        vm.pendingAction.collect { action ->
+            when (action) {
+                "new" -> nav.navigate("edit/0?kind=SCHEDULED")
+                "random" -> nav.navigate("random") { launchSingleTop = true }
+            }
+        }
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
@@ -137,12 +152,14 @@ fun NudgeApp(vm: NudgeViewModel = viewModel()) {
                     vm,
                     onAdd = { date -> nav.navigate("edit/0?kind=SCHEDULED&date=$date") },
                     onOpen = { id, occ -> nav.navigate("edit/$id?occ=${occ ?: ""}") },
+                    onList = { nav.navigate("list") },
                 )
             }
             composable("random") {
                 RandomScreen(vm, onAdd = { nav.navigate("edit/0?kind=RANDOM") }, onOpen = { nav.navigate("edit/$it") })
             }
             composable("settings") { SettingsScreen(vm) }
+            composable("list") { ListScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate("edit/$it") }) }
             composable(
                 "edit/{id}?kind={kind}&date={date}&occ={occ}",
                 arguments = listOf(

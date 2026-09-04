@@ -44,6 +44,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.aspectRatio
+import io.github.xalrk.nudge.data.Reminder
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -91,6 +97,7 @@ fun SettingsScreen(vm: NudgeViewModel) {
     var window by remember { mutableStateOf(settings.activeStartHour.toFloat()..settings.activeEndHour.toFloat()) }
     LaunchedEffect(settings.activeStartHour, settings.activeEndHour) { window = settings.activeStartHour.toFloat()..settings.activeEndHour.toFloat() }
     var showFormatHelp by remember { mutableStateOf(false) }
+    var showPauseDate by remember { mutableStateOf(false) }
 
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { vm.importFrom(it) } }
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri -> uri?.let { vm.exportTo(it) } }
@@ -172,6 +179,14 @@ fun SettingsScreen(vm: NudgeViewModel) {
             }
             Text("Random reminders never fire outside this window. Times follow the device time zone (${zoneLabel()}).",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(12.dp))
+            Text("Active days", style = MaterialTheme.typography.bodyLarge)
+            DayCircles(selected = settings.activeDaySet(), onToggle = { d ->
+                val cur = settings.activeDaySet()
+                val next = if (d in cur) cur - d else cur + d
+                if (next.isNotEmpty()) vm.setActiveDays(Reminder.maskOf(next))
+            })
+            Text("Random reminders skip the days that are off.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
 
             Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -237,6 +252,20 @@ fun SettingsScreen(vm: NudgeViewModel) {
         }
     }
 
+    if (showPauseDate) {
+        val state = rememberDatePickerState(initialSelectedDateMillis = java.time.LocalDate.now().plusDays(7).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli())
+        DatePickerDialog(
+            onDismissRequest = { showPauseDate = false },
+            confirmButton = { TextButton(onClick = {
+                state.selectedDateMillis?.let { ms ->
+                    val day = java.time.Instant.ofEpochMilli(ms).atZone(java.time.ZoneOffset.UTC).toLocalDate()
+                    vm.setPausedUntil(day.atStartOfDay(java.time.ZoneId.systemDefault()).plusHours(settings.activeStartHour.toLong()).toInstant().toEpochMilli())
+                }
+                showPauseDate = false
+            }) { Text("Pause") } },
+            dismissButton = { TextButton(onClick = { showPauseDate = false }) { Text("Cancel") } },
+        ) { DatePicker(state) }
+    }
     if (showFormatHelp) AlertDialog(
         onDismissRequest = { showFormatHelp = false },
         confirmButton = { TextButton(onClick = { showFormatHelp = false }) { Text("Got it") } },
@@ -279,6 +308,26 @@ private fun CsvColumn(name: String, meaning: String) {
     Row {
         Text(name, Modifier.width(140.dp), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
         Text(meaning, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+/** Seven equal circles, Monday first, filled when on. Shared by Settings and the editor. */
+@Composable
+fun DayCircles(selected: Set<java.time.DayOfWeek>, onToggle: (java.time.DayOfWeek) -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        for (d in java.time.DayOfWeek.entries) {
+            val on = d in selected
+            Box(
+                Modifier.weight(1f).aspectRatio(1f).clip(CircleShape)
+                    .background(if (on) MaterialTheme.colorScheme.primary else Color.Transparent)
+                    .then(if (on) Modifier else Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape))
+                    .clickable { onToggle(d) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(d.getDisplayName(java.time.format.TextStyle.NARROW, Locale.getDefault()), style = MaterialTheme.typography.labelLarge,
+                    color = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
+            }
+        }
     }
 }
 

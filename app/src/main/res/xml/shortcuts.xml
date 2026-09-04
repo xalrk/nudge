@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="new"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_add"
+        android:shortcutShortLabel="@string/shortcut_new"
+        android:shortcutLongLabel="@string/shortcut_new_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="io.github.xalrk.nudge"
+            android:targetClass="io.github.xalrk.nudge.ui.MainActivity">
+            <extra android:name="shortcut" android:value="new" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="roll"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_die"
+        android:shortcutShortLabel="@string/shortcut_roll"
+        android:shortcutLongLabel="@string/shortcut_roll_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="io.github.xalrk.nudge"
+            android:targetClass="io.github.xalrk.nudge.ui.MainActivity">
+            <extra android:name="shortcut" android:value="roll" />
+        </intent>
+    </shortcut>
+</shortcuts>

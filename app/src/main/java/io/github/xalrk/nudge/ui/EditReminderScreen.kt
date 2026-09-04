@@ -25,6 +25,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Slider
+import androidx.compose.foundation.horizontalScroll
+import io.github.xalrk.nudge.data.Settings
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.Icon
@@ -101,6 +105,8 @@ fun EditReminderScreen(
     var color by remember { mutableStateOf<Int?>(null) }
     var sound by remember { mutableStateOf(true) }
     var vibrate by remember { mutableStateOf(true) }
+    var customRate by remember { mutableStateOf(false) }
+    var rateSlider by remember { mutableStateOf(Settings.millisToSlider(Settings.DEFAULT_MEAN_MILLIS)) }
     var showDate by remember { mutableStateOf(false) }
     var showTime by remember { mutableStateOf(false) }
     var showEnd by remember { mutableStateOf(false) }
@@ -115,6 +121,8 @@ fun EditReminderScreen(
             weekdays = existing.weekdaySet(); endDate = existing.endDateOrNull()
             floating = existing.floating; zoneId = existing.zoneId ?: ZoneId.systemDefault().id
             enabled = existing.enabled; color = existing.color; sound = existing.sound; vibrate = existing.vibrate
+            customRate = existing.meanOverrideMillis != null
+            rateSlider = Settings.millisToSlider(existing.meanOverrideMillis ?: settings.meanIntervalMillis)
             loaded = true
         }
     }
@@ -129,8 +137,11 @@ fun EditReminderScreen(
         val common = base.copy(title = title.trim(), body = body.trim(), color = color, sound = sound, vibrate = vibrate)
         return if (kind == Kind.RANDOM) common.copy(
             kind = Kind.RANDOM, localDateTime = null, zoneId = null, repeat = Repeat.NONE, interval = 1, weekdays = 0, endDate = null,
-            excludedDates = "", enabled = enabled, nextAt = if (existing?.isRandom == true) existing.nextAt else null,
+            excludedDates = "", enabled = enabled, meanOverrideMillis = if (customRate) Settings.sliderToMillis(rateSlider) else null,
+            // A changed rate needs a fresh roll; otherwise keep the pending time.
+            nextAt = if (existing?.isRandom == true && existing.meanOverrideMillis == (if (customRate) Settings.sliderToMillis(rateSlider) else null)) existing.nextAt else null,
         ) else common.copy(
+            meanOverrideMillis = null,
             kind = Kind.SCHEDULED,
             localDateTime = LocalDateTime.of(date, time).format(Reminder.DT_FORMAT),
             zoneId = if (existing?.zoneId != null && !floating) existing.zoneId else ZoneId.systemDefault().id,
@@ -180,8 +191,22 @@ fun EditReminderScreen(
             }
 
             if (kind == Kind.RANDOM) {
-                Text("Fires at a random moment during your active hours, at the average frequency set in Settings.",
-                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Fires at a random moment during your active hours.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Custom frequency")
+                        Text(
+                            if (customRate) Settings.describeInterval(Settings.sliderToMillis(rateSlider)).replaceFirstChar { it.uppercase() }
+                            else "Uses the Settings default (${Settings.describeInterval(settings.meanIntervalMillis)})",
+                            style = MaterialTheme.typography.bodySmall, color = if (customRate) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Spacer(Modifier.width(16.dp))
+                    Switch(checked = customRate, onCheckedChange = { customRate = it })
+                }
+                if (customRate) SliderGuard(value = rateSlider, onCommit = { rateSlider = it }, onFinished = {}) { onChange, onFinished ->
+                    Slider(value = rateSlider, onValueChange = onChange, onValueChangeFinished = onFinished)
+                }
                 if (!isNew) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("Enabled", Modifier.weight(1f)); Spacer(Modifier.width(16.dp)); Switch(checked = enabled, onCheckedChange = { enabled = it })
                 }
@@ -189,6 +214,17 @@ fun EditReminderScreen(
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = { showDate = true }, Modifier.weight(1f)) { Text(date.format(Fmt.date)) }
                     OutlinedButton(onClick = { showTime = true }) { Text(time.format(Fmt.time)) }
+                }
+                // Quick picks for the common "remind me soon" cases.
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    fun pick(dt: LocalDateTime) { date = dt.toLocalDate(); time = dt.toLocalTime().withSecond(0).withNano(0) }
+                    val now = LocalDateTime.now()
+                    val tonight = now.toLocalDate().atTime(20, 0).let { if (it.isAfter(now)) it else it.plusDays(1) }
+                    AssistChip(onClick = { pick(now.plusMinutes(15)) }, label = { Text("In 15 min") })
+                    AssistChip(onClick = { pick(now.plusHours(1)) }, label = { Text("In 1 hour") })
+                    AssistChip(onClick = { pick(tonight) }, label = { Text("Tonight 8 pm") })
+                    AssistChip(onClick = { pick(now.toLocalDate().plusDays(1).atTime(9, 0)) }, label = { Text("Tomorrow 9 am") })
+                    AssistChip(onClick = { pick(now.toLocalDate().plusWeeks(1).atTime(time)) }, label = { Text("Next week") })
                 }
 
                 Text("Repeat", style = MaterialTheme.typography.labelLarge)

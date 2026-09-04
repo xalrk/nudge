@@ -29,10 +29,16 @@ data class SettingsSnapshot(
     val frequencyMode: FrequencyMode,
     val activeStartHour: Int,
     val activeEndHour: Int,
+    /** Weekday bitmask (Mon = 1 ... Sun = 64) on which random reminders may fire. */
+    val activeDays: Int,
+    /** Epoch millis until which every reminder is muted; 0 = not paused. */
+    val pausedUntil: Long,
     val showNextRandomTime: Boolean,
     val autoUpdateCheck: Boolean,
 ) {
     val activeHoursPerDay: Int get() = activeEndHour - activeStartHour
+    val isPaused: Boolean get() = pausedUntil > System.currentTimeMillis()
+    fun activeDaySet(): Set<java.time.DayOfWeek> = java.time.DayOfWeek.entries.filter { activeDays and (1 shl (it.value - 1)) != 0 }.toSet()
 }
 
 class Settings(context: Context) {
@@ -71,6 +77,14 @@ class Settings(context: Context) {
         get() = prefs.getInt(KEY_END, 23)
         set(v) = prefs.edit().putInt(KEY_END, v.coerceIn(1, 24)).apply()
 
+    var activeDays: Int
+        get() = prefs.getInt(KEY_DAYS, ALL_DAYS)
+        set(v) = prefs.edit().putInt(KEY_DAYS, if (v and ALL_DAYS == 0) ALL_DAYS else v and ALL_DAYS).apply()
+
+    var pausedUntil: Long
+        get() = prefs.getLong(KEY_PAUSED, 0L)
+        set(v) = prefs.edit().putLong(KEY_PAUSED, v.coerceAtLeast(0L)).apply()
+
     var showNextRandomTime: Boolean
         get() = prefs.getBoolean(KEY_SHOW_NEXT, true)
         set(v) = prefs.edit().putBoolean(KEY_SHOW_NEXT, v).apply()
@@ -84,7 +98,7 @@ class Settings(context: Context) {
         get() = prefs.getString(KEY_LAST_UPDATE, null)
         set(v) = prefs.edit().putString(KEY_LAST_UPDATE, v).apply()
 
-    fun snapshot() = SettingsSnapshot(themeMode, dynamicColor, accentColor, customColors, meanIntervalMillis, frequencyMode, activeStartHour, activeEndHour, showNextRandomTime, autoUpdateCheck)
+    fun snapshot() = SettingsSnapshot(themeMode, dynamicColor, accentColor, customColors, meanIntervalMillis, frequencyMode, activeStartHour, activeEndHour, activeDays, pausedUntil, showNextRandomTime, autoUpdateCheck)
 
     fun observe(): Flow<SettingsSnapshot> = callbackFlow {
         trySend(snapshot())
@@ -102,10 +116,13 @@ class Settings(context: Context) {
         private const val KEY_MODE = "frequency_mode"
         private const val KEY_START = "active_start_hour"
         private const val KEY_END = "active_end_hour"
+        private const val KEY_DAYS = "active_days"
+        private const val KEY_PAUSED = "paused_until"
         private const val KEY_SHOW_NEXT = "show_next_random"
         private const val KEY_AUTO_UPDATE = "auto_update_check"
         private const val KEY_LAST_UPDATE = "last_notified_update"
 
+        const val ALL_DAYS = 0x7F
         const val DEFAULT_ACCENT = 0xFF3D5AFE.toInt()
 
         /** Hand-picked accents that read well on both white and true black. */

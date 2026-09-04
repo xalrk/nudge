@@ -1,6 +1,7 @@
 package io.github.xalrk.nudge.domain
 
 import io.github.xalrk.nudge.data.SettingsSnapshot
+import java.time.DayOfWeek
 import java.time.Duration
 import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
@@ -27,18 +28,21 @@ object RandomScheduler {
         startHour: Int,
         endHour: Int,
         random: Random = Random.Default,
+        days: Set<DayOfWeek> = DayOfWeek.entries.toSet(),
     ): ZonedDateTime {
         val activeHours = (endHour - startHour).coerceIn(1, 24)
-        val activeFraction = activeHours / 24.0
+        val activeDays = days.size.coerceIn(1, 7)
+        // Scale the mean by the share of the week that is "active" so the wall-clock average holds.
+        val activeFraction = activeHours / 24.0 * activeDays / 7.0
         val meanActive = meanIntervalMillis * activeFraction
         val u = random.nextDouble().coerceIn(1e-12, 1.0)
         val gap = (-ln(u) * meanActive).toLong().coerceAtLeast(MIN_GAP_MILLIS)
-        return advanceByActiveMillis(from, gap, startHour, endHour)
+        return advanceByActiveMillis(from, gap, startHour, endHour, days)
     }
 
-    fun sampleNext(from: ZonedDateTime, settings: SettingsSnapshot, poolSize: Int, random: Random = Random.Default): ZonedDateTime {
-        val mean = effectiveMeanPerReminder(settings, poolSize)
-        return sampleNext(from, mean, settings.activeStartHour, settings.activeEndHour, random)
+    fun sampleNext(from: ZonedDateTime, settings: SettingsSnapshot, poolSize: Int, random: Random = Random.Default, overrideMean: Long? = null): ZonedDateTime {
+        val mean = overrideMean ?: effectiveMeanPerReminder(settings, poolSize)
+        return sampleNext(from, mean, settings.activeStartHour, settings.activeEndHour, random, settings.activeDaySet())
     }
 
     /** Mean interval for one reminder given the frequency mode and how many random reminders are enabled. */
@@ -48,18 +52,23 @@ object RandomScheduler {
             io.github.xalrk.nudge.data.FrequencyMode.WHOLE_POOL -> settings.meanIntervalMillis * poolSize.coerceAtLeast(1)
         }
 
-    fun isInsideActiveWindow(t: ZonedDateTime, startHour: Int, endHour: Int): Boolean {
+    fun isInsideActiveWindow(t: ZonedDateTime, startHour: Int, endHour: Int, days: Set<DayOfWeek> = DayOfWeek.entries.toSet()): Boolean {
         val minutes = t.hour * 60 + t.minute
-        return minutes >= startHour * 60 && minutes < endHour * 60
+        return t.dayOfWeek in days && minutes >= startHour * 60 && minutes < endHour * 60
     }
 
-    /** Move [from] forward by [millis] of *active* time, skipping everything outside the window each day. */
-    fun advanceByActiveMillis(from: ZonedDateTime, millis: Long, startHour: Int, endHour: Int): ZonedDateTime {
+    /** Move [from] forward by [millis] of *active* time, skipping everything outside the window and off days. */
+    fun advanceByActiveMillis(from: ZonedDateTime, millis: Long, startHour: Int, endHour: Int, days: Set<DayOfWeek> = DayOfWeek.entries.toSet()): ZonedDateTime {
         var cursor = from
         var remaining = millis
         var guard = 0
+        val allowed = if (days.isEmpty()) DayOfWeek.entries.toSet() else days
         while (guard++ < 200_000) {
             val date = cursor.toLocalDate()
+            if (date.dayOfWeek !in allowed) {
+                cursor = date.plusDays(1).atStartOfDay(cursor.zone).plusHours(startHour.toLong())
+                continue
+            }
             val dayStart = date.atStartOfDay(cursor.zone).plusHours(startHour.toLong())
             val dayEnd = if (endHour >= 24) date.plusDays(1).atStartOfDay(cursor.zone)
                          else date.atStartOfDay(cursor.zone).plusHours(endHour.toLong())

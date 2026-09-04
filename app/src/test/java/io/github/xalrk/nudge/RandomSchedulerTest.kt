@@ -46,3 +46,21 @@ class RandomSchedulerTest {
         assertEquals((7..22).toSet(), hours)
     }
 }
+
+class RandomSchedulerDaysTest {
+    private fun z(s: String) = ZonedDateTime.parse(s)
+
+    @Test fun offDaysAreSkipped() {
+        val weekdays = java.time.DayOfWeek.entries.filter { it.value <= 5 }.toSet()
+        // Friday 22:30 with 1 h of active time left -> skips Sat/Sun, lands Monday.
+        val from = z("2026-09-04T22:30-06:00[America/Denver]")
+        val got = RandomScheduler.advanceByActiveMillis(from, 2 * 3_600_000L, 7, 23, weekdays)
+        assertEquals("2026-09-07T08:30-06:00[America/Denver]", got.toString())
+        val rnd = Random(3)
+        repeat(500) {
+            val t = RandomScheduler.sampleNext(from, 3L * 86_400_000L, 7, 23, rnd, weekdays)
+            assertTrue("$t landed on a weekend", t.dayOfWeek in weekdays)
+        }
+        assertTrue(!RandomScheduler.isInsideActiveWindow(z("2026-09-05T12:00-06:00[America/Denver]"), 7, 23, weekdays))
+    }
+}

@@ -16,6 +16,9 @@ import io.github.xalrk.nudge.ui.MainActivity
 
 object Notifier {
     const val EXTRA_REMINDER_ID = "reminder_id"
+    const val EXTRA_SNOOZE_MINUTES = "snooze_minutes"
+    /** Sentinel for "next morning" instead of a fixed number of minutes. */
+    const val SNOOZE_MORNING = -1
 
     fun canPost(context: Context): Boolean =
         Build.VERSION.SDK_INT < 33 ||
@@ -29,9 +32,10 @@ object Notifier {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        val snooze = PendingIntent.getBroadcast(
-            context, r.id.toInt(),
-            Intent(context, AlarmReceiver::class.java).setAction(AlarmReceiver.ACTION_SNOOZE).putExtra(EXTRA_REMINDER_ID, r.id),
+        fun snoozeIntent(code: Int, minutes: Int) = PendingIntent.getBroadcast(
+            context, r.id.toInt() * 4 + code,
+            Intent(context, AlarmReceiver::class.java).setAction(AlarmReceiver.ACTION_SNOOZE)
+                .putExtra(EXTRA_REMINDER_ID, r.id).putExtra(EXTRA_SNOOZE_MINUTES, minutes),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val accent = (context.applicationContext as NudgeApp).settings.accentColor
@@ -43,7 +47,9 @@ object Notifier {
             .setAutoCancel(true)
             .setCategory(Notification.CATEGORY_REMINDER)
             .setShowWhen(true)
-            .addAction(Notification.Action.Builder(null, "Snooze 10 min", snooze).build())
+            .addAction(Notification.Action.Builder(null, "10 min", snoozeIntent(1, 10)).build())
+            .addAction(Notification.Action.Builder(null, "1 hour", snoozeIntent(2, 60)).build())
+            .addAction(Notification.Action.Builder(null, "Tomorrow", snoozeIntent(3, SNOOZE_MORNING)).build())
         if (r.body.isNotBlank()) {
             builder.setContentText(r.body).setStyle(Notification.BigTextStyle().bigText(r.body))
         }

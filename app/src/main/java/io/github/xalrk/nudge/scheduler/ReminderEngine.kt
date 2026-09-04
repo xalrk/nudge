@@ -198,7 +198,7 @@ object ReminderEngine {
                     }
                 }
                 Kind.RANDOM -> {
-                    if (resampleRandom || r.nextAt == null) r.copy(nextAt = sampleRandom(s, pool, now)) else null
+                    if (resampleRandom || r.nextAt == null) r.copy(nextAt = sampleRandom(s, pool, now, r.meanOverrideMillis)) else null
                 }
             }
         }
@@ -240,9 +240,11 @@ object ReminderEngine {
             var fire = snoozeDue
             if (snoozeDue) updated = updated.copy(snoozeAt = null)
             if (mainDue) {
+                // Anything that came due while everything was paused is skipped, not delivered late.
+                val dueDuringPause = r.nextAt != null && r.nextAt < s.pausedUntil
                 when (r.kind) {
                     Kind.SCHEDULED -> {
-                        fire = true
+                        fire = !dueDuringPause
                         val next = Recurrence.nextOccurrenceAfter(r, now)?.toInstant()?.toEpochMilli()
                         updated = updated.copy(nextAt = next, enabled = if (r.repeat == Repeat.NONE) false else r.enabled)
                     }
@@ -250,11 +252,12 @@ object ReminderEngine {
                         // Only deliver inside active hours; a random reminder that came due while the
                         // phone was off overnight is simply re-rolled instead of waking anyone up.
                         val z = now.atZone(ZoneId.systemDefault())
-                        if (RandomScheduler.isInsideActiveWindow(z, s.activeStartHour, s.activeEndHour)) fire = true
-                        updated = updated.copy(nextAt = sampleRandom(s, pool, now))
+                        if (!dueDuringPause && RandomScheduler.isInsideActiveWindow(z, s.activeStartHour, s.activeEndHour, s.activeDaySet())) fire = true
+                        updated = updated.copy(nextAt = sampleRandom(s, pool, now, r.meanOverrideMillis))
                     }
                 }
             }
+            if (snoozeDue && s.isPaused) fire = false
             if (fire) {
                 deliver(context, r, nowMs)
                 updated = updated.copy(lastFiredAt = nowMs)
@@ -264,11 +267,30 @@ object ReminderEngine {
         armAlarm(context)
     }
 
-    suspend fun snooze(context: Context, id: Long, minutes: Int = 10) = lock.withLock {
+    suspend fun snooze(context: Context, id: Long, minutes: Int = 10) =
+        snoozeUntil(context, id, System.currentTimeMillis() + minutes * 60_000L)
+
+    /** Snooze until the start of the next active window (tomorrow morning, or later today if before it). */
+    suspend fun snoozeUntilMorning(context: Context, id: Long) {
+        val s = settings(context)
+        val now = ZonedDateTime.now()
+        var target = now.toLocalDate().atStartOfDay(now.zone).plusHours(s.activeStartHour.toLong())
+        if (!target.isAfter(now.plusMinutes(1))) target = target.plusDays(1)
+        snoozeUntil(context, id, target.toInstant().toEpochMilli())
+    }
+
+    suspend fun snoozeUntil(context: Context, id: Long, at: Long) = lock.withLock {
         val dao = dao(context)
         val r = dao.byId(id) ?: return@withLock
-        dao.update(r.copy(snoozeAt = System.currentTimeMillis() + minutes * 60_000L, enabled = true))
+        dao.update(r.copy(snoozeAt = at, enabled = true))
         Notifier.cancel(context, id)
+        armAlarm(context)
+    }
+
+    /** Mute everything until [untilMillis] (0 clears). Random reminders are re-rolled so they land after the pause. */
+    suspend fun setPausedUntil(context: Context, untilMillis: Long) = lock.withLock {
+        (context.applicationContext as NudgeApp).settings.pausedUntil = untilMillis
+        resampleAllRandom(context)
         armAlarm(context)
     }
 
@@ -290,7 +312,7 @@ object ReminderEngine {
         val s = settings(context)
         val pool = dao.enabledRandom()
         val now = Instant.now()
-        dao.updateAll(pool.map { it.copy(nextAt = sampleRandom(s, pool.size, now)) })
+        dao.updateAll(pool.map { it.copy(nextAt = sampleRandom(s, pool.size, now, it.meanOverrideMillis)) })
     }
 
     private fun prepare(r: Reminder, s: SettingsSnapshot, pool: Int, now: Instant): Reminder {
@@ -300,12 +322,12 @@ object ReminderEngine {
                 val next = Recurrence.nextOccurrenceAfter(r, now)?.toInstant()?.toEpochMilli()
                 r.copy(nextAt = next, enabled = next != null)
             }
-            Kind.RANDOM -> r.copy(nextAt = r.nextAt ?: sampleRandom(s, pool, now), localDateTime = null, repeat = Repeat.NONE)
+            Kind.RANDOM -> r.copy(nextAt = r.nextAt ?: sampleRandom(s, pool, now, r.meanOverrideMillis), localDateTime = null, repeat = Repeat.NONE)
         }
     }
 
-    private fun sampleRandom(s: SettingsSnapshot, pool: Int, now: Instant): Long =
-        RandomScheduler.sampleNext(now.atZone(ZoneId.systemDefault()), s, pool).toInstant().toEpochMilli()
+    private fun sampleRandom(s: SettingsSnapshot, pool: Int, now: Instant, override: Long? = null): Long =
+        RandomScheduler.sampleNext(now.atZone(ZoneId.systemDefault()), s, pool, overrideMean = override).toInstant().toEpochMilli()
 
     // ----------------------------------------------------------------- alarm
 
@@ -320,7 +342,8 @@ object ReminderEngine {
         val pi = alarmIntent(context)
         val at = dao(context).earliestTrigger()
         if (at == null) { am.cancel(pi); return }
-        val triggerAt = maxOf(at, System.currentTimeMillis() + 1000)
+        // While paused, wake up once at the end of the pause; everything due before then is skipped in fireDue.
+        val triggerAt = maxOf(at, settings(context).pausedUntil, System.currentTimeMillis() + 1000)
         val exact = Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()
         try {
             if (exact) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)

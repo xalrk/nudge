@@ -110,6 +110,19 @@ class NudgeViewModel(app: Application) : AndroidViewModel(app) {
         ReminderEngine.resampleAllRandomLocked(ctx())
     }
 
+    fun setActiveDays(mask: Int) = viewModelScope.launch {
+        settingsStore.activeDays = mask
+        ReminderEngine.resampleAllRandomLocked(ctx())
+    }
+
+    fun setPausedUntil(untilMillis: Long) = viewModelScope.launch {
+        ReminderEngine.setPausedUntil(ctx(), untilMillis)
+        messages.tryEmit(if (untilMillis > System.currentTimeMillis()) "Paused until ${Fmt.instant(untilMillis).format(Fmt.dayTime)}" else "Reminders resumed")
+    }
+
+    /** One-shot navigation requests from launcher shortcuts. */
+    val pendingAction = MutableSharedFlow<String>(extraBufferCapacity = 1)
+
     fun setShowNextRandom(show: Boolean) { settingsStore.showNextRandomTime = show }
     fun setAutoUpdateCheck(on: Boolean) {
         settingsStore.autoUpdateCheck = on

@@ -74,3 +74,21 @@ fun ReminderRow(
         if (onToggle != null) Switch(checked = r.enabled, onCheckedChange = onToggle)
     }
 }
+
+
+/** Shown at the top of the main tabs while every reminder is muted. */
+@Composable
+fun PauseBanner(settings: io.github.xalrk.nudge.data.SettingsSnapshot, onResume: () -> Unit) {
+    if (!settings.isPaused) return
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("All reminders paused", style = MaterialTheme.typography.bodyMedium)
+            Text("Until " + Fmt.instant(settings.pausedUntil).format(Fmt.dayTime), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        androidx.compose.material3.TextButton(onClick = onResume) { Text("Resume") }
+    }
+}

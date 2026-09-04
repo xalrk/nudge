@@ -20,6 +20,17 @@ them at random moments during the day.
   into a pattern); a slider in Settings sets the *average* rate, default once every
   two weeks per reminder. You can also apply the rate to the whole list instead of
   each item.
+- **Per-reminder random frequency.** Any random reminder can override the global
+  rate with its own slider, so "drink water" can be hourly while the rest stay
+  biweekly.
+- **Pause everything.** Mute all reminders until tomorrow, for a week, or until a
+  chosen date. Things that would have fired meanwhile are skipped, not queued.
+  Random reminders can also skip chosen weekdays.
+- **Snooze choices** on every notification: 10 minutes, 1 hour, or tomorrow
+  morning at the start of your active hours.
+- **Quick picks** in the editor (in 15 min, in 1 hour, tonight, tomorrow, next
+  week), a searchable list of every reminder, and launcher shortcuts for "New
+  reminder" and "Roll a random one" (long-press the app icon).
 - **Import a list.** A CSV file with one reminder per row (a spreadsheet saved as
   CSV works). Duplicates are skipped, both within the file and against what is
   already stored. The info button next to Import shows the column layout in-app.
