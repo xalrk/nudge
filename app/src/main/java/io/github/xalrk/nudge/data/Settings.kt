@@ -35,6 +35,7 @@ data class SettingsSnapshot(
     val pausedUntil: Long,
     val showNextRandomTime: Boolean,
     val autoUpdateCheck: Boolean,
+    val tutorialSeen: Boolean,
 ) {
     val activeHoursPerDay: Int get() = activeEndHour - activeStartHour
     val isPaused: Boolean get() = pausedUntil > System.currentTimeMillis()
@@ -89,6 +90,10 @@ class Settings(context: Context) {
         get() = prefs.getBoolean(KEY_SHOW_NEXT, true)
         set(v) = prefs.edit().putBoolean(KEY_SHOW_NEXT, v).apply()
 
+    var tutorialSeen: Boolean
+        get() = prefs.getBoolean(KEY_TUTORIAL, false)
+        set(v) = prefs.edit().putBoolean(KEY_TUTORIAL, v).apply()
+
     var autoUpdateCheck: Boolean
         get() = prefs.getBoolean(KEY_AUTO_UPDATE, true)
         set(v) = prefs.edit().putBoolean(KEY_AUTO_UPDATE, v).apply()
@@ -98,7 +103,7 @@ class Settings(context: Context) {
         get() = prefs.getString(KEY_LAST_UPDATE, null)
         set(v) = prefs.edit().putString(KEY_LAST_UPDATE, v).apply()
 
-    fun snapshot() = SettingsSnapshot(themeMode, dynamicColor, accentColor, customColors, meanIntervalMillis, frequencyMode, activeStartHour, activeEndHour, activeDays, pausedUntil, showNextRandomTime, autoUpdateCheck)
+    fun snapshot() = SettingsSnapshot(themeMode, dynamicColor, accentColor, customColors, meanIntervalMillis, frequencyMode, activeStartHour, activeEndHour, activeDays, pausedUntil, showNextRandomTime, autoUpdateCheck, tutorialSeen)
 
     fun observe(): Flow<SettingsSnapshot> = callbackFlow {
         trySend(snapshot())
@@ -120,6 +125,7 @@ class Settings(context: Context) {
         private const val KEY_PAUSED = "paused_until"
         private const val KEY_SHOW_NEXT = "show_next_random"
         private const val KEY_AUTO_UPDATE = "auto_update_check"
+        private const val KEY_TUTORIAL = "tutorial_seen"
         private const val KEY_LAST_UPDATE = "last_notified_update"
 
         const val ALL_DAYS = 0x7F

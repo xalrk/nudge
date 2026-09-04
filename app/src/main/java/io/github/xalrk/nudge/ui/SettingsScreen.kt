@@ -87,7 +87,7 @@ import java.time.format.TextStyle
 import java.util.Locale
 
 @Composable
-fun SettingsScreen(vm: NudgeViewModel) {
+fun SettingsScreen(vm: NudgeViewModel, onTutorial: () -> Unit) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val reminders by vm.reminders.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -98,6 +98,7 @@ fun SettingsScreen(vm: NudgeViewModel) {
     LaunchedEffect(settings.activeStartHour, settings.activeEndHour) { window = settings.activeStartHour.toFloat()..settings.activeEndHour.toFloat() }
     var showFormatHelp by remember { mutableStateOf(false) }
     var showPauseDate by remember { mutableStateOf(false) }
+    var showCredits by remember { mutableStateOf(false) }
 
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { vm.importFrom(it) } }
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri -> uri?.let { vm.exportTo(it) } }
@@ -247,6 +248,13 @@ fun SettingsScreen(vm: NudgeViewModel) {
             }
 
             HorizontalDivider(Modifier.padding(vertical = 16.dp))
+            SectionTitle("Help")
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onTutorial) { Text("Show tutorial") }
+                OutlinedButton(onClick = { showCredits = true }) { Text("Open-source credits") }
+            }
+
+            HorizontalDivider(Modifier.padding(vertical = 16.dp))
             Text("Nudge ${BuildConfig.VERSION_NAME} · github.com/xalrk/nudge", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(32.dp))
         }
@@ -266,6 +274,22 @@ fun SettingsScreen(vm: NudgeViewModel) {
             dismissButton = { TextButton(onClick = { showPauseDate = false }) { Text("Cancel") } },
         ) { DatePicker(state) }
     }
+    if (showCredits) AlertDialog(
+        onDismissRequest = { showCredits = false },
+        confirmButton = { TextButton(onClick = { showCredits = false }) { Text("Close") } },
+        title = { Text("Open-source credits") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Nudge is MIT-licensed and built on these projects. All are Apache License 2.0 unless noted.", style = MaterialTheme.typography.bodySmall)
+                for ((name, what) in CREDITS) {
+                    Column {
+                        Text(name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                        Text(what, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        },
+    )
     if (showFormatHelp) AlertDialog(
         onDismissRequest = { showFormatHelp = false },
         confirmButton = { TextButton(onClick = { showFormatHelp = false }) { Text("Got it") } },
@@ -330,6 +354,20 @@ fun DayCircles(selected: Set<java.time.DayOfWeek>, onToggle: (java.time.DayOfWee
         }
     }
 }
+
+private val CREDITS: List<Pair<String, String>> = listOf(
+    "Kotlin" to "Language and standard library. JetBrains.",
+    "kotlinx.coroutines" to "Asynchronous work such as alarms and imports. JetBrains.",
+    "Jetpack Compose & Material 3" to "The entire user interface. Google / AndroidX.",
+    "Material Icons" to "Icons used throughout. Google.",
+    "AndroidX Room" to "Local database for reminders and delivery history. Google.",
+    "AndroidX WorkManager" to "Battery-friendly daily update check. Google.",
+    "AndroidX Navigation, Lifecycle, Activity, Core" to "App plumbing. Google.",
+    "Material Components for Android" to "Base theme. Google.",
+    "Kotlin Symbol Processing (KSP)" to "Build-time code generation for Room. Google.",
+    "Gradle & Android Gradle Plugin" to "Build system. Gradle Inc. / Google.",
+    "Eclipse Temurin JDK" to "Java toolchain used for builds. Adoptium; GPLv2 with Classpath Exception.",
+)
 
 @Composable
 private fun SectionTitle(text: String) {

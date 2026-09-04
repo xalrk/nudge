@@ -172,7 +172,7 @@ fun EditReminderScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (isNew) "New reminder" else "Edit reminder") },
+                title = { Text(if (isNew) "New Reminder" else "Edit Reminder") },
                 navigationIcon = { IconButton(onClick = { leave() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
                 actions = {
                     if (!isNew) IconButton(onClick = { if (isSeries) askScope = "delete" else confirmDelete = true }) { Icon(Icons.Filled.Delete, "Delete") }

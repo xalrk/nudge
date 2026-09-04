@@ -123,6 +123,8 @@ class NudgeViewModel(app: Application) : AndroidViewModel(app) {
     /** One-shot navigation requests from launcher shortcuts. */
     val pendingAction = MutableSharedFlow<String>(extraBufferCapacity = 1)
 
+    fun setTutorialSeen(seen: Boolean) { settingsStore.tutorialSeen = seen }
+
     fun setShowNextRandom(show: Boolean) { settingsStore.showNextRandomTime = show }
     fun setAutoUpdateCheck(on: Boolean) {
         settingsStore.autoUpdateCheck = on

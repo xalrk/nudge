@@ -113,6 +113,8 @@ fun NudgeApp(vm: NudgeViewModel = viewModel()) {
     val backStack by nav.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
     val showBar = tabs.any { it.route == currentRoute }
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    val firstRun = remember { !settings.tutorialSeen }
 
     LaunchedEffect(Unit) { vm.messages.collect { snackbar.showSnackbar(it) } }
     LaunchedEffect(Unit) {
@@ -146,7 +148,7 @@ fun NudgeApp(vm: NudgeViewModel = viewModel()) {
         }
     ) { padding ->
         // consumeWindowInsets stops nested top bars and FABs from re-applying the system bar insets.
-        NavHost(nav, startDestination = "calendar", modifier = Modifier.padding(padding).consumeWindowInsets(padding)) {
+        NavHost(nav, startDestination = if (firstRun) "tutorial" else "calendar", modifier = Modifier.padding(padding).consumeWindowInsets(padding)) {
             composable("calendar") {
                 CalendarScreen(
                     vm,
@@ -158,7 +160,13 @@ fun NudgeApp(vm: NudgeViewModel = viewModel()) {
             composable("random") {
                 RandomScreen(vm, onAdd = { nav.navigate("edit/0?kind=RANDOM") }, onOpen = { nav.navigate("edit/$it") })
             }
-            composable("settings") { SettingsScreen(vm) }
+            composable("settings") { SettingsScreen(vm, onTutorial = { nav.navigate("tutorial") }) }
+            composable("tutorial") {
+                TutorialScreen(onDone = {
+                    vm.setTutorialSeen(true)
+                    if (!nav.popBackStack()) nav.navigate("calendar") { popUpTo("tutorial") { inclusive = true } }
+                })
+            }
             composable("list") { ListScreen(vm, onBack = { nav.popBackStack() }, onOpen = { nav.navigate("edit/$it") }) }
             composable(
                 "edit/{id}?kind={kind}&date={date}&occ={occ}",

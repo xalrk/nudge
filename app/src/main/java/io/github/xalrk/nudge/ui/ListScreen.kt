@@ -40,7 +40,7 @@ fun ListScreen(vm: NudgeViewModel, onBack: () -> Unit, onOpen: (Long) -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("All reminders") },
+                title = { Text("All Reminders") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
             )
         }

@@ -60,7 +60,7 @@ fun RandomScreen(vm: NudgeViewModel, onAdd: () -> Unit, onOpen: (Long) -> Unit) 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Random reminders") },
+                title = { Text("Random Reminders") },
                 actions = {
                     // Roll: the die spins in place around two axes, flicks through faces, lands on a random one.
                     val spin = remember { Animatable(0f) }

@@ -15,3 +15,6 @@ keystore.properties
 *.iml
 .DS_Store
 captures/
+
+# Local design scratch (icon candidates etc.)
+design/
