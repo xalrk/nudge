@@ -56,7 +56,7 @@ import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.random.Random
 
-private data class Page(val title: String, val lines: List<String>, val art: @Composable () -> Unit)
+private data class Page(val title: String, val lines: List<String>, val art: @Composable (active: Boolean) -> Unit)
 
 /**
  * A short first-run walkthrough. It only covers what the layout does not make obvious:
@@ -69,22 +69,22 @@ fun TutorialScreen(onDone: () -> Unit) {
         Page("Nudge", listOf(
             "Reminders on a calendar, plus a pool of reminders with no time at all that surface when you least expect them.",
             "Two minutes of setup is all it needs.",
-        )) { IntroArt() },
+        )) { active -> IntroArt(active) },
         Page("Random Reminders", listOf(
             "Anything without a date or time goes into the random pool. Each one fires at an unpredictable moment inside your active hours, about once every two weeks on average by default.",
             "They work best as a big list you rarely think about: affirmations, small habits, questions to sit with, things you keep meaning to do. Import a whole list at once from Settings.",
             "The Settings slider sets the average rate for the pool; any reminder can override it with its own rate.",
-        )) { RandomArt() },
+        )) { active -> RandomArt(active) },
         Page("Calendar", listOf(
             "Tap a day, then + to add something on that day.",
             "Each dot is a reminder in its own color. A faded dot means it was already delivered.",
             "Changing or deleting a repeating reminder asks whether you mean only that occurrence, everything from then on, or the whole series.",
-        )) { CalendarArt() },
+        )) { active -> CalendarArt(active) },
         Page("Keep them coming", listOf(
             "Nudge has no background service and never polls, so it costs no battery between reminders.",
             "Some phones still kill quiet apps. If reminders go missing, set Nudge to unrestricted battery use from Settings → Reliability.",
             "Every notification can be snoozed for 10 minutes, an hour, or until tomorrow morning.",
-        )) { RingArt() },
+        )) { active -> RingArt(active) },
     )
     val pager = rememberPagerState { pages.size }
     val scope = rememberCoroutineScope()
@@ -99,11 +99,13 @@ fun TutorialScreen(onDone: () -> Unit) {
             }
             HorizontalPager(state = pager, modifier = Modifier.weight(1f), beyondViewportPageCount = 0) { i ->
                 val page = pages[i]
+                // Pages are composed a little before they are on screen; animations wait until the page has settled.
+                val active = pager.currentPage == i && !pager.isScrollInProgress
                 Column(
                     Modifier.fillMaxSize().padding(horizontal = 24.dp).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    Box(Modifier.fillMaxWidth().height(180.dp), contentAlignment = Alignment.Center) { page.art() }
+                    Box(Modifier.fillMaxWidth().height(180.dp), contentAlignment = Alignment.Center) { page.art(active) }
                     Spacer(Modifier.height(24.dp))
                     Text(page.title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(12.dp))
@@ -138,10 +140,10 @@ private fun backOut(x: Float, k: Float = 1.7f): Float { val t = x - 1f; return 1
  * a burst of colored dots scatters from it. Skipped entirely when the system reduces animations.
  */
 @Composable
-private fun IntroArt() {
+private fun IntroArt(active: Boolean) {
     val reduced = rememberAnimationsReduced()
     val t = remember { Animatable(if (reduced) 1f else 0f) }
-    LaunchedEffect(Unit) { if (!reduced) t.animateTo(1f, tween(2400, easing = LinearEasing)) }
+    LaunchedEffect(active) { if (active && !reduced) { t.snapTo(0f); t.animateTo(1f, tween(2400, easing = LinearEasing)) } }
     val primary = MaterialTheme.colorScheme.primary
     val badge = Color(0xFFFF3B30)
     val burstColors = remember { listOf(0xFFFF3B30, 0xFFFFB300, 0xFF2ECC71, 0xFF8C9EFF, 0xFFFF6A1F, 0xFF00BFA5, 0xFFD81B60, 0xFF40C4FF).map { Color(it) } }
@@ -203,12 +205,13 @@ private fun BellShape(modifier: Modifier, color: Color = MaterialTheme.colorSche
 
 /** A week-long timeline; dots pop in at random moments inside the daytime band, never at night. Loops with fresh moments each pass. */
 @Composable
-private fun RandomArt() {
+private fun RandomArt(active: Boolean) {
     val progress = remember { Animatable(0f) }
     var hits by remember { mutableStateOf(List(9) { Random.nextFloat() }.sorted()) }
     var jitter by remember { mutableStateOf(List(9) { Random.nextFloat() }) }
     // Teaching animation: pinned to normal speed regardless of the system animation setting.
-    LaunchedEffect(Unit) {
+    LaunchedEffect(active) {
+        if (!active) return@LaunchedEffect
         withContext(NormalMotion) {
             while (true) {
                 progress.snapTo(0f)
@@ -245,9 +248,9 @@ private fun RandomArt() {
 
 /** A week strip: dots appear under days, then the ones in the past fade. */
 @Composable
-private fun CalendarArt() {
+private fun CalendarArt(active: Boolean) {
     val progress = remember { Animatable(0f) }
-    LaunchedEffect(Unit) { withContext(NormalMotion) { progress.animateTo(1f, tween(2200, easing = FastOutSlowInEasing)) } }
+    LaunchedEffect(active) { if (active) withContext(NormalMotion) { progress.snapTo(0f); progress.animateTo(1f, tween(2200, easing = FastOutSlowInEasing)) } }
     val primary = MaterialTheme.colorScheme.primary
     val second = MaterialTheme.colorScheme.tertiary
     val onSurface = MaterialTheme.colorScheme.onSurface
@@ -273,9 +276,10 @@ private fun CalendarArt() {
 
 /** The bell rings: a gentle repeating swing around its top. */
 @Composable
-private fun RingArt() {
+private fun RingArt(active: Boolean) {
     val phase = remember { Animatable(0f) }
-    LaunchedEffect(Unit) {
+    LaunchedEffect(active) {
+        if (!active) return@LaunchedEffect
         withContext(NormalMotion) { while (true) { phase.snapTo(0f); phase.animateTo(1f, tween(1400, easing = LinearEasing)) } }
     }
     BellShape(Modifier.size(96.dp).graphicsLayer {
