@@ -29,6 +29,12 @@ interface FiredEventDao {
     @Query("DELETE FROM fired_events WHERE firedAt < :before")
     suspend fun deleteOlderThan(before: Long)
 
+    @Query("DELETE FROM fired_events WHERE reminderId = :reminderId")
+    suspend fun deleteForReminder(reminderId: Long)
+
+    @Query("DELETE FROM fired_events WHERE reminderId = :reminderId AND firedAt >= :from AND firedAt < :to")
+    suspend fun deleteForReminderBetween(reminderId: Long, from: Long, to: Long)
+
     @Query("DELETE FROM fired_events")
     suspend fun deleteAll()
 }

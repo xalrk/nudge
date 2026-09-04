@@ -98,10 +98,6 @@ fun CalendarScreen(vm: NudgeViewModel, onAdd: (LocalDate) -> Unit, onOpen: (Long
     val dayDots = remember(occurrences) { occurrences.mapValues { (_, l) -> l.sortedBy { it.at }.map { it.color }.take(4) } }
     val today = LocalDate.now()
     val dayList = (occurrences[selectedDate] ?: emptyList()).sortedBy { it.at }
-    val upcoming = remember(reminders) {
-        val now = System.currentTimeMillis()
-        reminders.filter { it.isScheduled && it.enabled && it.nextAt != null && it.nextAt >= now }.sortedBy { it.nextAt }.take(5)
-    }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Nudge") }) },
@@ -131,17 +127,6 @@ fun CalendarScreen(vm: NudgeViewModel, onAdd: (LocalDate) -> Unit, onOpen: (Long
             }
             items(dayList, key = { "${it.done}-${it.reminderId}-${it.at.toInstant().toEpochMilli()}" }) { occ ->
                 OccurrenceRow(occ, onClick = { if (reminders.any { it.id == occ.reminderId }) onOpen(occ.reminderId, occ.at.toLocalDate()) })
-            }
-            if (upcoming.isNotEmpty()) {
-                item {
-                    HorizontalDivider(Modifier.padding(top = 8.dp))
-                    Text("Coming up", Modifier.padding(16.dp, 12.dp, 16.dp, 4.dp), style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                items(upcoming, key = { "up-${it.id}" }) { r ->
-                    ReminderRow(r, subtitle = Fmt.instant(r.nextAt!!).format(Fmt.dayTime) + " · " + Fmt.relative(r.nextAt), color = vm.colorOf(r),
-                        onClick = { onOpen(r.id, Fmt.instant(r.nextAt).toLocalDate()) })
-                }
             }
             item { Box(Modifier.size(80.dp)) }
         }

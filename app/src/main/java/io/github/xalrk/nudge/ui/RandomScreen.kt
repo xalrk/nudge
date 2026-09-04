@@ -58,16 +58,18 @@ fun RandomScreen(vm: NudgeViewModel, onAdd: () -> Unit, onOpen: (Long) -> Unit) 
                         vm.rerollRandom()
                         scope.launch {
                             spin.snapTo(0f)
-                            spin.animateTo(1f, tween(650, easing = FastOutSlowInEasing))
+                            spin.animateTo(1f, tween(1100, easing = FastOutSlowInEasing))
                         }
                     }) {
                         val t = spin.value
-                        val wobble = sin(t * PI.toFloat() * 3f) * 12f
+                        // Three spins that slow down, a hop up and back, a swell, and a settling wobble.
+                        val wobble = if (t > 0.75f) sin((t - 0.75f) / 0.25f * PI.toFloat() * 2f) * 18f * (1f - t) else 0f
                         Icon(
                             Icons.Filled.Casino, contentDescription = "Re-roll times",
                             modifier = Modifier.graphicsLayer {
-                                rotationZ = t * 720f + wobble
-                                val s = 1f + 0.25f * sin(t * PI.toFloat())
+                                rotationZ = t * 1080f + wobble
+                                translationY = -sin(t * PI.toFloat()) * 28.dp.toPx()
+                                val s = 1f + 0.5f * sin(t * PI.toFloat())
                                 scaleX = s; scaleY = s
                             },
                         )

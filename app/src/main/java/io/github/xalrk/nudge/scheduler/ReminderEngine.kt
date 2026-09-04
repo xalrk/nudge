@@ -131,23 +131,39 @@ object ReminderEngine {
 
     suspend fun deleteFromSeries(context: Context, original: Reminder, occDate: LocalDate, scope: SeriesScope) = lock.withLock {
         val dao = dao(context)
+        val ev = events(context)
         val s = settings(context)
         val now = Instant.now()
+        val zone = ZoneId.systemDefault()
+        val dayStart = occDate.atStartOfDay(zone).toInstant().toEpochMilli()
+        val dayEnd = occDate.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
         when (scope) {
-            SeriesScope.THIS -> dao.update(prepare(original.withExcluded(occDate).withDedupeKey(), s, 0, now))
+            SeriesScope.THIS -> {
+                dao.update(prepare(original.withExcluded(occDate).withDedupeKey(), s, 0, now))
+                ev.deleteForReminderBetween(original.id, dayStart, dayEnd)
+            }
             SeriesScope.FOLLOWING -> {
                 val seriesStart = original.localDateTimeOrNull()?.toLocalDate()
-                if (seriesStart == null || !occDate.isAfter(seriesStart)) { dao.deleteById(original.id); Notifier.cancel(context, original.id) }
-                else dao.update(prepare(original.copy(endDate = occDate.minusDays(1).toString()).withDedupeKey(), s, 0, now))
+                if (seriesStart == null || !occDate.isAfter(seriesStart)) removeReminder(context, original.id)
+                else {
+                    dao.update(prepare(original.copy(endDate = occDate.minusDays(1).toString()).withDedupeKey(), s, 0, now))
+                    ev.deleteForReminderBetween(original.id, dayStart, Long.MAX_VALUE)
+                }
             }
-            SeriesScope.ALL -> { dao.deleteById(original.id); Notifier.cancel(context, original.id) }
+            SeriesScope.ALL -> removeReminder(context, original.id)
         }
         armAlarm(context)
     }
 
-    suspend fun delete(context: Context, id: Long) = lock.withLock {
+    /** Deletes the reminder, its notification, and its delivery history (so it leaves the calendar too). */
+    private suspend fun removeReminder(context: Context, id: Long) {
         dao(context).deleteById(id)
+        events(context).deleteForReminder(id)
         Notifier.cancel(context, id)
+    }
+
+    suspend fun delete(context: Context, id: Long) = lock.withLock {
+        removeReminder(context, id)
         armAlarm(context)
     }
 
