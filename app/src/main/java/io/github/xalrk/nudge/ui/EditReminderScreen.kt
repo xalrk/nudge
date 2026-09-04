@@ -27,7 +27,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Slider
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.FlowRow
 import io.github.xalrk.nudge.data.Settings
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -216,8 +216,8 @@ fun EditReminderScreen(
                     OutlinedButton(onClick = { showDate = true }, Modifier.weight(1f)) { Text(date.format(Fmt.date)) }
                     OutlinedButton(onClick = { showTime = true }) { Text(time.format(Fmt.time)) }
                 }
-                // Quick picks for the common "remind me soon" cases.
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Quick picks for the common "remind me soon" cases; wraps onto a second row instead of scrolling.
+                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(0.dp)) {
                     fun pick(dt: LocalDateTime) { date = dt.toLocalDate(); time = dt.toLocalTime().withSecond(0).withNano(0) }
                     val now = LocalDateTime.now()
                     val tonight = now.toLocalDate().atTime(20, 0).let { if (it.isAfter(now)) it else it.plusDays(1) }
