@@ -196,6 +196,26 @@ fun SettingsScreen(vm: NudgeViewModel, onTutorial: () -> Unit) {
             }
 
             HorizontalDivider(Modifier.padding(vertical = 16.dp))
+            SectionTitle("Pause")
+            if (settings.isPaused) {
+                Text("All reminders are paused until ${Fmt.instant(settings.pausedUntil).format(Fmt.dayTimeYear)}.", style = MaterialTheme.typography.bodyMedium)
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { vm.setPausedUntil(0L) }) { Text("Resume now") }
+                    OutlinedButton(onClick = { showPauseDate = true }) { Text("Change date") }
+                }
+            } else {
+                Text("Mute everything for a while, for a holiday or a busy week. Anything that would have fired meanwhile is skipped, not delivered late. Also available from the pause icon on the calendar.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                FlowRow(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val now = java.time.ZonedDateTime.now()
+                    fun morning(daysAhead: Long) = now.toLocalDate().plusDays(daysAhead).atStartOfDay(now.zone).plusHours(settings.activeStartHour.toLong()).toInstant().toEpochMilli()
+                    OutlinedButton(onClick = { vm.setPausedUntil(morning(1)) }) { Text("Until tomorrow") }
+                    OutlinedButton(onClick = { vm.setPausedUntil(morning(7)) }) { Text("For a week") }
+                    OutlinedButton(onClick = { showPauseDate = true }) { Text("Pick a date") }
+                }
+            }
+
+            HorizontalDivider(Modifier.padding(vertical = 16.dp))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 SectionTitle("Import & export")
                 Spacer(Modifier.weight(1f))
