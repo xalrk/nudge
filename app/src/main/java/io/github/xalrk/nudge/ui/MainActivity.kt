@@ -122,7 +122,7 @@ fun NudgeApp(vm: NudgeViewModel = viewModel()) {
 
     // Newest message replaces whatever is showing instead of queueing behind it.
     LaunchedEffect(Unit) { vm.messages.collect { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(it) } }
-    // Brief messages hold for ~1.6 s instead of Material's 4 s; a newer one restarts the clock.
+    // Brief messages hold for 2.5 s from when they appear instead of Material's 4 s; a newer one restarts the clock.
     LaunchedEffect(Unit) {
         var showing: Job? = null
         vm.briefMessages.collect { text ->
@@ -130,7 +130,7 @@ fun NudgeApp(vm: NudgeViewModel = viewModel()) {
             showing?.cancel()
             showing = launch {
                 launch { snackbar.showSnackbar(text, duration = SnackbarDuration.Indefinite) }
-                delay(1600)
+                delay(2500)
                 snackbar.currentSnackbarData?.dismiss()
             }
         }

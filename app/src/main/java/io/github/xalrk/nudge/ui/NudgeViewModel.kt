@@ -161,7 +161,7 @@ class NudgeViewModel(app: Application) : AndroidViewModel(app) {
 
     private var rerollNotice: Job? = null
 
-    /** Short-lived messages: shown briefly and gone about two seconds after the action. */
+    /** Short-lived messages: shown for 2.5 seconds. */
     val briefMessages = MutableSharedFlow<String>(extraBufferCapacity = 8)
 
     /** Re-rolls immediately; the confirmation appears once, shortly after the tapping stops, and fades fast. */
