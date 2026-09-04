@@ -1,0 +1,15 @@
+# Nudge import file: one reminder per line.
+# Lines without "@" fire at random moments during your active hours.
+Drink some water
+Stand up and stretch
+Text a friend you haven't talked to in a while
+Look out the window for a minute :: really, a full minute
+
+# Scheduled reminders use "@ date time", with optional repeat rules.
+Call mom @ 2026-09-14 18:00 every week
+Stretch @ 09:00 every day
+Standup @ 09:30 every weekday
+Gym @ 18:00 every mon,wed,fri :: bring a towel
+Pay rent @ 2026-10-01 09:00 every month
+Sprint review @ 2026-09-08 10:00 every 2 weeks until 2026-12-19
+Dentist @ 2026-11-03 14:15

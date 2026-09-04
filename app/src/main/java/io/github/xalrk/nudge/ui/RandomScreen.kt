@@ -1,0 +1,90 @@
+package io.github.xalrk.nudge.ui
+
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Casino
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.xalrk.nudge.data.FrequencyMode
+import io.github.xalrk.nudge.data.Settings
+
+@Composable
+fun RandomScreen(vm: NudgeViewModel, onAdd: () -> Unit, onOpen: (Long) -> Unit) {
+    val reminders by vm.reminders.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    val random = reminders.filter { it.isRandom }
+    val enabledCount = random.count { it.enabled }
+
+    val overallMean = when (settings.frequencyMode) {
+        FrequencyMode.PER_REMINDER -> if (enabledCount > 0) settings.meanIntervalMillis / enabledCount else 0L
+        FrequencyMode.WHOLE_POOL -> settings.meanIntervalMillis
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Random reminders") },
+                actions = { IconButton(onClick = { vm.rerollRandom() }) { Icon(Icons.Filled.Casino, contentDescription = "Re-roll times") } },
+            )
+        },
+        floatingActionButton = { FloatingActionButton(onClick = onAdd) { Icon(Icons.Filled.Add, contentDescription = "Add random reminder") } },
+    ) { padding ->
+        LazyColumn(Modifier.fillMaxSize().padding(padding)) {
+            item {
+                Column(Modifier.padding(16.dp)) {
+                    Text(
+                        "These go off at unpredictable moments between ${hourLabel(settings.activeStartHour)} and ${hourLabel(settings.activeEndHour)}.",
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    val detail = when (settings.frequencyMode) {
+                        FrequencyMode.PER_REMINDER -> "Each one fires ${Settings.describeInterval(settings.meanIntervalMillis)}."
+                        FrequencyMode.WHOLE_POOL -> "One of them fires ${Settings.describeInterval(settings.meanIntervalMillis)}."
+                    }
+                    Text(detail, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (enabledCount > 1 && settings.frequencyMode == FrequencyMode.PER_REMINDER) {
+                        Text("With $enabledCount enabled that is ${Settings.describeInterval(overallMean.coerceAtLeast(Settings.MIN_MEAN_MILLIS))} overall.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+            if (random.isEmpty()) item {
+                Text("No random reminders yet. Tap + or import a text file with one message per line.",
+                    Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            items(random, key = { it.id }) { r ->
+                val sub = when {
+                    !r.enabled -> "Paused"
+                    r.nextAt == null -> "Waiting"
+                    settings.showNextRandomTime -> "Next " + Fmt.relative(r.nextAt) + " · " + Fmt.instant(r.nextAt).format(Fmt.dayTime)
+                    else -> "Sometime soon"
+                }
+                ReminderRow(r, subtitle = sub, onClick = { onOpen(r.id) }, onToggle = { vm.setEnabled(r.id, it) })
+            }
+            item { Box(Modifier.size(80.dp)) }
+        }
+    }
+}
+
+fun hourLabel(h: Int): String = when {
+    h == 0 || h == 24 -> "midnight"
+    h == 12 -> "noon"
+    h < 12 -> "${h} am"
+    else -> "${h - 12} pm"
+}

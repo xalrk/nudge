@@ -1,0 +1,11 @@
+{
+  "reminders": [
+    { "title": "Drink some water" },
+    { "title": "Take a short walk", "body": "Around the block is enough" },
+    { "title": "Call mom", "at": "2026-09-14T18:00", "repeat": "weekly", "weekdays": ["sun"] },
+    { "title": "Stretch", "at": "2026-09-04T09:00", "repeat": "daily" },
+    { "title": "Pay rent", "at": "2026-10-01T09:00", "repeat": "monthly", "interval": 1 },
+    { "title": "Flight to Berlin", "at": "2026-10-20T06:30", "zone": "America/Denver", "floating": false },
+    { "title": "Sprint review", "at": "2026-09-08T10:00", "repeat": "weekly", "interval": 2, "until": "2026-12-19" }
+  ]
+}
