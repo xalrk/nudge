@@ -263,7 +263,8 @@ fun EditReminderScreen(
             Text("\"A\" follows the app accent (its complementary color).", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             SwatchRow(
                 current = color, customColors = settings.customColors, autoColor = autoColor,
-                onPick = { color = it }, onAddCustom = { vm.addCustomColor(it) }, onRemoveCustom = { vm.removeCustomColor(it) },
+                onPick = { color = it }, onAddCustom = { vm.addCustomColor(it) },
+                onRemoveCustom = { removed -> vm.removeCustomColor(removed); if (color == removed) color = null },
             )
             Spacer(Modifier.padding(8.dp))
         }

@@ -13,6 +13,7 @@ import io.github.xalrk.nudge.data.FiredEvent
 import io.github.xalrk.nudge.data.FrequencyMode
 import io.github.xalrk.nudge.data.Kind
 import io.github.xalrk.nudge.data.Reminder
+import io.github.xalrk.nudge.data.Settings
 import io.github.xalrk.nudge.data.SettingsSnapshot
 import io.github.xalrk.nudge.data.ThemeMode
 import io.github.xalrk.nudge.domain.Colors
@@ -75,7 +76,11 @@ class NudgeViewModel(app: Application) : AndroidViewModel(app) {
     fun deleteHistoryEntry(eventId: Long) = viewModelScope.launch { ReminderEngine.deleteHistoryEntry(ctx(), eventId) }
 
     fun addCustomColor(argb: Int) { settingsStore.customColors = settingsStore.customColors + argb }
-    fun removeCustomColor(argb: Int) { settingsStore.customColors = settingsStore.customColors - argb }
+    fun removeCustomColor(argb: Int) {
+        settingsStore.customColors = settingsStore.customColors - argb
+        // Removing the swatch that is the current accent falls back to the first preset.
+        if (settingsStore.accentColor == argb) settingsStore.accentColor = Settings.ACCENT_PRESETS.first().second
+    }
 
     /** The color a reminder's notification and calendar dot use. */
     fun colorOf(r: Reminder?): Int = r?.color ?: Colors.complementary(settingsStore.accentColor)
