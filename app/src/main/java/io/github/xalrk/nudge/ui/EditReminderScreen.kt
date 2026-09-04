@@ -26,6 +26,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.material3.Slider
 import androidx.compose.foundation.layout.FlowRow
 import io.github.xalrk.nudge.data.Settings
@@ -239,7 +241,9 @@ fun EditReminderScreen(
                     OutlinedButton(onClick = { showTime = true }) { Text(time.format(Fmt.time)) }
                 }
                 // Quick picks for the common "remind me soon" cases; wraps onto a second row instead of scrolling.
-                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                // Chips carry a 48 dp touch-target halo that pushes the rows apart; trim it so the rows sit close.
+                CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 36.dp) {
+                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     fun pick(dt: LocalDateTime) { date = dt.toLocalDate(); time = dt.toLocalTime().withSecond(0).withNano(0) }
                     val now = LocalDateTime.now()
                     val tonight = now.toLocalDate().atTime(20, 0).let { if (it.isAfter(now)) it else it.plusDays(1) }
@@ -248,6 +252,7 @@ fun EditReminderScreen(
                     AssistChip(onClick = { pick(tonight) }, label = { Text("Tonight 8 pm") })
                     AssistChip(onClick = { pick(now.toLocalDate().plusDays(1).atTime(9, 0)) }, label = { Text("Tomorrow 9 am") })
                     AssistChip(onClick = { pick(now.toLocalDate().plusWeeks(1).atTime(time)) }, label = { Text("Next week") })
+                }
                 }
 
                 Text("Repeat", style = MaterialTheme.typography.labelLarge)
