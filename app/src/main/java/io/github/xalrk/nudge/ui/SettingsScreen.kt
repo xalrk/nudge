@@ -14,6 +14,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -67,7 +72,7 @@ fun SettingsScreen(vm: NudgeViewModel) {
     var showFormatHelp by remember { mutableStateOf(false) }
 
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { vm.importFrom(it) } }
-    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri -> uri?.let { vm.exportTo(it) } }
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri -> uri?.let { vm.exportTo(it) } }
 
     Scaffold(topBar = { TopAppBar(title = { Text("Settings") }) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
@@ -145,13 +150,16 @@ fun SettingsScreen(vm: NudgeViewModel) {
             }
 
             HorizontalDivider(Modifier.padding(vertical = 16.dp))
-            SectionTitle("Import & export")
-            Text("Import a plain text file (one reminder per line) or a JSON export. Duplicates are skipped automatically.",
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                SectionTitle("Import & export")
+                Spacer(Modifier.weight(1f))
+                IconButton(onClick = { showFormatHelp = true }) { Icon(Icons.Outlined.Info, contentDescription = "How to format the CSV") }
+            }
+            Text("Import a CSV file with one reminder per row. Duplicates are skipped automatically. Tap the info icon for the column layout.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { importLauncher.launch(arrayOf("text/*", "application/json", "application/octet-stream", "*/*")) }) { Text("Import file") }
-                OutlinedButton(onClick = { exportLauncher.launch("nudge-reminders.json") }) { Text("Export JSON") }
-                TextButton(onClick = { showFormatHelp = true }) { Text("Format") }
+                Button(onClick = { importLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "text/plain", "application/json", "application/octet-stream", "*/*")) }) { Text("Import CSV") }
+                OutlinedButton(onClick = { exportLauncher.launch("nudge-reminders.csv") }) { Text("Export CSV") }
             }
             Text("${reminders.size} reminders stored", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
@@ -177,7 +185,7 @@ fun SettingsScreen(vm: NudgeViewModel) {
             }
 
             HorizontalDivider(Modifier.padding(vertical = 16.dp))
-            Text("Nudge 1.0.1 · github.com/xalrk/nudge", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Nudge 1.0.2 · github.com/xalrk/nudge", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(32.dp))
         }
     }
@@ -185,33 +193,46 @@ fun SettingsScreen(vm: NudgeViewModel) {
     if (showFormatHelp) AlertDialog(
         onDismissRequest = { showFormatHelp = false },
         confirmButton = { TextButton(onClick = { showFormatHelp = false }) { Text("Got it") } },
-        title = { Text("Import formats") },
+        title = { Text("CSV format") },
         text = {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
-                Text("Plain text, one reminder per line:", style = MaterialTheme.typography.labelLarge)
-                Text(
-                    "Drink some water\n" +
-                    "Call mom @ 2026-09-10 14:30\n" +
-                    "Stretch @ 09:00 every day\n" +
-                    "Standup @ 09:30 every weekday\n" +
-                    "Gym @ 18:00 every mon,wed,fri\n" +
-                    "Rent @ 2026-10-01 09:00 every month\n" +
-                    "Review @ 2026-09-08 10:00 every 2 weeks until 2026-12-19\n" +
-                    "Vitamins :: the ones in the kitchen",
-                    fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall,
-                )
-                Spacer(Modifier.height(8.dp))
-                Text("Lines without @ become random reminders. Text after :: is the notification body. Lines starting with # are ignored.",
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("One reminder per row. Put this header on the first line, then one row per reminder. Only \"title\" is required; leave any other cell empty.",
                     style = MaterialTheme.typography.bodySmall)
-                Spacer(Modifier.height(12.dp))
-                Text("JSON (same as export):", style = MaterialTheme.typography.labelLarge)
                 Text(
-                    "[{\"title\": \"Call mom\",\n  \"at\": \"2026-09-10T14:30\",\n  \"repeat\": \"weekly\",\n  \"weekdays\": [\"sun\"]},\n {\"title\": \"Drink water\"}]",
+                    "title,details,date,time,repeat,every,weekdays,until,zone,follow_device_zone\n" +
+                    "Drink some water,,,,,,,,,\n" +
+                    "Call mom,,2026-09-14,18:00,weekly,1,sun,,,\n" +
+                    "Standup,,,09:30,weekly,1,mon;tue;wed;thu;fri,2026-12-19,,\n" +
+                    "Gym,\"Bring a towel, water\",,18:00,weekly,1,mon;wed;fri,,,\n" +
+                    "Pay rent,,2026-10-01,09:00,monthly,,,,,\n" +
+                    "Flight,,2026-10-20,06:30,,,,,America/Denver,no",
                     fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall,
                 )
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    CsvColumn("title", "the notification text (required)")
+                    CsvColumn("details", "longer text shown under the title")
+                    CsvColumn("date", "YYYY-MM-DD; empty with a time = the next such time")
+                    CsvColumn("time", "HH:MM or 2:15pm; defaults to 09:00 when a date is given")
+                    CsvColumn("repeat", "daily, weekly, monthly, yearly, weekdays, weekends; empty = once")
+                    CsvColumn("every", "repeat every N days/weeks/months/years (default 1)")
+                    CsvColumn("weekdays", "for weekly: mon;tue;wed;thu;fri;sat;sun, separated by ;")
+                    CsvColumn("until", "YYYY-MM-DD, last day of a repeat")
+                    CsvColumn("zone", "time zone id such as Europe/Berlin (default: this device)")
+                    CsvColumn("follow_device_zone", "yes (ring at the same wall-clock time anywhere) or no (pin to the zone)")
+                }
+                Text("A row with no date and no time becomes a random reminder. Wrap a cell in double quotes if it contains a comma. Columns may be in any order when the header is present; without a header they are read in the order above. Rows starting with # are ignored. Spreadsheet apps such as Excel, Numbers and Google Sheets can save this with File → Save as → CSV.",
+                    style = MaterialTheme.typography.bodySmall)
             }
         },
     )
+}
+
+@Composable
+private fun CsvColumn(name: String, meaning: String) {
+    Row {
+        Text(name, Modifier.width(140.dp), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+        Text(meaning, style = MaterialTheme.typography.bodySmall)
+    }
 }
 
 @Composable

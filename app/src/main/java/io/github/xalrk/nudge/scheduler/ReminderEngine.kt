@@ -7,6 +7,8 @@ import android.content.Intent
 import android.os.Build
 import android.util.Log
 import io.github.xalrk.nudge.NudgeApp
+import io.github.xalrk.nudge.data.FiredEvent
+import io.github.xalrk.nudge.data.FiredEventDao
 import io.github.xalrk.nudge.data.Kind
 import io.github.xalrk.nudge.data.Reminder
 import io.github.xalrk.nudge.data.ReminderDao
@@ -34,6 +36,14 @@ object ReminderEngine {
     private val lock = Mutex()
 
     private fun dao(context: Context): ReminderDao = (context.applicationContext as NudgeApp).database.reminders()
+    private fun events(context: Context): FiredEventDao = (context.applicationContext as NudgeApp).database.firedEvents()
+    private const val HISTORY_MILLIS = 400L * 24 * 3_600_000L
+
+    /** Post the notification and record it in the history the calendar shows. */
+    private suspend fun deliver(context: Context, r: Reminder, at: Long) {
+        Notifier.show(context, r)
+        events(context).insert(FiredEvent(reminderId = r.id, title = r.title, body = r.body, kind = r.kind, firedAt = at))
+    }
     private fun settings(context: Context): SettingsSnapshot = (context.applicationContext as NudgeApp).settings.snapshot()
 
     /** Compute nextAt for a new/edited reminder and persist it. Returns the saved row id. */
@@ -111,6 +121,7 @@ object ReminderEngine {
             }
         }
         if (updated.isNotEmpty()) dao.updateAll(updated)
+        events(context).deleteOlderThan(now.toEpochMilli() - HISTORY_MILLIS)
         armAlarm(context)
     }
 
@@ -145,7 +156,7 @@ object ReminderEngine {
                 }
             }
             if (fire) {
-                Notifier.show(context, r)
+                deliver(context, r, nowMs)
                 updated = updated.copy(lastFiredAt = nowMs)
             }
             dao.update(updated)
@@ -166,8 +177,9 @@ object ReminderEngine {
         val dao = dao(context)
         val pool = dao.enabledRandom()
         val pick = pool.randomOrNull() ?: return@withLock false
-        Notifier.show(context, pick)
-        dao.update(pick.copy(lastFiredAt = System.currentTimeMillis()))
+        val now = System.currentTimeMillis()
+        deliver(context, pick, now)
+        dao.update(pick.copy(lastFiredAt = now))
         true
     }
 

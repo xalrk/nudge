@@ -65,7 +65,7 @@ fun RandomScreen(vm: NudgeViewModel, onAdd: () -> Unit, onOpen: (Long) -> Unit) 
                 }
             }
             if (random.isEmpty()) item {
-                Text("No random reminders yet. Tap + or import a text file with one message per line.",
+                Text("No random reminders yet. Tap + or import a CSV file from Settings.",
                     Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             items(random, key = { it.id }) { r ->

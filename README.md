@@ -16,15 +16,18 @@ them at random moments during the day.
   into a pattern); a slider in Settings sets the *average* rate, default once every
   two weeks per reminder. You can also apply the rate to the whole list instead of
   each item.
-- **Import a list.** Plain text (one line per reminder) or JSON. Duplicates are
-  skipped, both within the file and against what is already stored. You can also
-  "Open with" / "Share to" Nudge from any file manager or notes app.
-- **Export** everything as JSON, which re-imports cleanly.
+- **Import a list.** A CSV file with one reminder per row (a spreadsheet saved as
+  CSV works). Duplicates are skipped, both within the file and against what is
+  already stored. The info button next to Import shows the column layout in-app.
+  You can also "Open with" / "Share to" Nudge from a file manager.
+- **Export** everything as CSV, which re-imports cleanly.
 - **Time-zone aware.** Reminders follow the device's wall clock by default, so a
   9:00 reminder rings at 9:00 wherever you are, and DST switches are handled. Flip
   "Follow device time zone" off to pin a reminder to the zone it was created in
   (useful for a flight departure). Everything is re-planned automatically when the
   zone or clock changes, after a reboot, and after an app update.
+- **History on the calendar.** Delivered notifications stay on their day, greyed
+  out with a check, so you can tell what already happened from what is coming.
 - **Snooze** from the notification. Missed reminders (phone off) are delivered when
   the phone comes back, except random ones, which are quietly re-rolled so they
   never fire at night.
@@ -43,49 +46,49 @@ If your phone's manufacturer kills background apps aggressively, set Nudge to
 
 ## Import format
 
-### Plain text
+CSV, one reminder per row, with this header on the first line:
 
-```
-# comments and blank lines are ignored
-Drink some water                       ← no "@": random reminder
-Call mom @ 2026-09-14 18:00 every week
-Stretch @ 09:00 every day              ← today if still ahead, else tomorrow
-Standup @ 09:30 every weekday
-Gym @ 18:00 every mon,wed,fri :: bring a towel
-Pay rent @ 2026-10-01 09:00 every month
-Sprint review @ 2026-09-08 10:00 every 2 weeks until 2026-12-19
-Dentist @ 2026-11-03 2:15pm
-```
-
-- `@ <date> <time>` sets the first occurrence. Date is `YYYY-MM-DD`; time is
-  `HH:MM` (24 h) or `h:MMam/pm`. Date alone defaults to 09:00; time alone means
-  the next such time.
-- `every [N] day|week|month|year`, `every weekday`, `every weekend`, or a list of
-  weekdays such as `every mon,thu`.
-- `until YYYY-MM-DD` ends a repeat.
-- Text after `::` becomes the notification body.
-
-### JSON
-
-```json
-{ "reminders": [
-  { "title": "Drink some water" },
-  { "title": "Call mom", "body": "", "at": "2026-09-14T18:00",
-    "repeat": "weekly", "interval": 1, "weekdays": ["sun"],
-    "until": "2026-12-31", "zone": "America/Denver", "floating": true }
-]}
+```csv
+title,details,date,time,repeat,every,weekdays,until,zone,follow_device_zone
+Drink some water,,,,,,,,,
+Call mom,,2026-09-14,18:00,weekly,1,sun,,,
+Standup,,,09:30,weekly,1,mon;tue;wed;thu;fri,2026-12-19,,
+Gym,"Bring a towel, water",,18:00,weekly,1,mon;wed;fri,,,
+Pay rent,,2026-10-01,09:00,monthly,,,,,
+Flight,,2026-10-20,06:30,,,,,America/Denver,no
+Dentist,,2026-11-03,2:15pm,,,,,,
 ```
 
-A bare array works too. Omit `at` for a random reminder. `repeat` is one of
-`none`, `daily`, `weekly`, `monthly`, `yearly`.
+| column | meaning |
+|---|---|
+| `title` | the notification text (required) |
+| `details` | longer text shown under the title |
+| `date` | `YYYY-MM-DD`. Empty with a time set means the next such time |
+| `time` | `HH:MM` or `2:15pm`. Defaults to 09:00 when a date is given |
+| `repeat` | `daily`, `weekly`, `monthly`, `yearly`, `weekdays`, `weekends`. Empty = once |
+| `every` | repeat every N days/weeks/months/years (default 1) |
+| `weekdays` | for weekly repeats: `mon;tue;wed;thu;fri;sat;sun`, separated by `;` |
+| `until` | `YYYY-MM-DD`, last day of a repeat |
+| `zone` | IANA time zone such as `Europe/Berlin` (default: the device zone) |
+| `follow_device_zone` | `yes` rings at the same wall-clock time anywhere; `no` pins the moment to `zone` |
 
-Sample files are in [`samples/`](samples/).
+- A row with no date and no time becomes a random reminder.
+- Only `title` is required. With the header present, columns can be in any order
+  and extra columns are ignored; without a header they are read in the order
+  above (so a file with just one message per line is valid).
+- Quote a cell in double quotes if it contains a comma. Semicolon-delimited CSV
+  (as some spreadsheet locales export) is detected automatically.
+- Rows starting with `#` are ignored.
+
+JSON in the shape `{"reminders": [{"title": "...", "at": "2026-09-10T14:30", "repeat": "weekly", "weekdays": ["sun"]}]}` is also accepted.
+
+A sample file is in [`samples/reminders.csv`](samples/reminders.csv).
 
 ## Building
 
 ```
 ./gradlew assembleDebug        # app/build/outputs/apk/debug/app-debug.apk
-./gradlew testDebugUnitTest    # recurrence, random-window and parser tests
+./gradlew testDebugUnitTest    # recurrence, random-window and CSV parser tests
 ```
 
 Requires JDK 17 and the Android SDK (platform 35). For a signed release build,

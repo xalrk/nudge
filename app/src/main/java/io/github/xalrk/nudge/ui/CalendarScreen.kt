@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -40,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -51,24 +53,36 @@ import java.time.YearMonth
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
-data class Occurrence(val reminder: Reminder, val at: ZonedDateTime)
+/** One entry on a calendar day: either a future occurrence of a rule, or a notification that was delivered. */
+data class Occurrence(val at: ZonedDateTime, val title: String, val body: String, val reminderId: Long, val done: Boolean, val rule: String)
 
 @Composable
 fun CalendarScreen(vm: NudgeViewModel, onAdd: () -> Unit, onOpen: (Long) -> Unit) {
     val reminders by vm.reminders.collectAsStateWithLifecycle()
+    val history by vm.history.collectAsStateWithLifecycle()
     var month by rememberSaveable { mutableStateOf(YearMonth.now().toString()) }
     var selected by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
     val ym = YearMonth.parse(month)
     val selectedDate = LocalDate.parse(selected)
     val zone = ZoneId.systemDefault()
 
-    val occurrences = remember(reminders, ym) {
+    // Past = what was actually delivered (history); future = what the rules say will come.
+    val occurrences = remember(reminders, history, ym) {
         val from = ym.atDay(1).atStartOfDay(zone)
         val to = ym.plusMonths(1).atDay(1).atStartOfDay(zone)
-        reminders.filter { it.isScheduled && it.enabled }
-            .flatMap { r -> Recurrence.occurrencesBetween(r, from, to).map { Occurrence(r, it.withZoneSameInstant(zone)) } }
-            .groupBy { it.at.toLocalDate() }
+        val now = ZonedDateTime.now(zone)
+        val upcomingOnes = reminders.filter { it.isScheduled && it.enabled }.flatMap { r ->
+            Recurrence.occurrencesBetween(r, maxOf(from, now), to).map {
+                Occurrence(it.withZoneSameInstant(zone), r.title, r.body, r.id, done = false, rule = Recurrence.describe(r))
+            }
+        }
+        val doneOnes = history.map { Fmt.instant(it.firedAt) }.zip(history).mapNotNull { (at, e) ->
+            if (at.isBefore(from) || !at.isBefore(to)) null
+            else Occurrence(at, e.title, e.body, e.reminderId, done = true, rule = if (e.kind == io.github.xalrk.nudge.data.Kind.RANDOM) "Random" else "Delivered")
+        }
+        (upcomingOnes + doneOnes).groupBy { it.at.toLocalDate() }
     }
+    val upcomingDays = remember(occurrences) { occurrences.filterValues { l -> l.any { !it.done } }.keys }
     val today = LocalDate.now()
     val dayList = (occurrences[selectedDate] ?: emptyList()).sortedBy { it.at }
     val upcoming = remember(reminders) {
@@ -87,7 +101,7 @@ fun CalendarScreen(vm: NudgeViewModel, onAdd: () -> Unit, onOpen: (Long) -> Unit
                     Text(ym.format(Fmt.month), Modifier.weight(1f), textAlign = TextAlign.Center, style = MaterialTheme.typography.titleMedium)
                     IconButton(onClick = { month = ym.plusMonths(1).toString() }) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Next month") }
                 }
-                MonthGrid(ym, selectedDate, today, occurrences.keys) { selected = it.toString() }
+                MonthGrid(ym, selectedDate, today, upcoming = upcomingDays, past = occurrences.keys - upcomingDays) { selected = it.toString() }
                 if (ym != YearMonth.now() || selectedDate != today) {
                     TextButton(onClick = { month = YearMonth.now().toString(); selected = today.toString() }, Modifier.padding(horizontal = 8.dp)) { Text("Today") }
                 }
@@ -102,8 +116,8 @@ fun CalendarScreen(vm: NudgeViewModel, onAdd: () -> Unit, onOpen: (Long) -> Unit
             if (dayList.isEmpty()) item {
                 Text("Nothing scheduled this day.", Modifier.padding(16.dp, 4.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            items(dayList, key = { "${it.reminder.id}-${it.at.toInstant().toEpochMilli()}" }) { occ ->
-                ReminderRow(occ.reminder, subtitle = occ.at.format(Fmt.time) + " · " + Recurrence.describe(occ.reminder), onClick = { onOpen(occ.reminder.id) })
+            items(dayList, key = { "${it.done}-${it.reminderId}-${it.at.toInstant().toEpochMilli()}" }) { occ ->
+                OccurrenceRow(occ, onClick = { if (reminders.any { it.id == occ.reminderId }) onOpen(occ.reminderId) })
             }
             if (upcoming.isNotEmpty()) {
                 item {
@@ -121,7 +135,34 @@ fun CalendarScreen(vm: NudgeViewModel, onAdd: () -> Unit, onOpen: (Long) -> Unit
 }
 
 @Composable
-private fun MonthGrid(ym: YearMonth, selected: LocalDate, today: LocalDate, marked: Set<LocalDate>, onSelect: (LocalDate) -> Unit) {
+private fun OccurrenceRow(occ: Occurrence, onClick: () -> Unit) {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (occ.done) {
+            Icon(Icons.Filled.Check, contentDescription = "Delivered", tint = muted, modifier = Modifier.size(18.dp).padding(end = 2.dp))
+            Box(Modifier.size(8.dp))
+        }
+        Column(Modifier.weight(1f)) {
+            Text(
+                occ.title, style = MaterialTheme.typography.bodyLarge, maxLines = 2,
+                color = if (occ.done) muted else MaterialTheme.colorScheme.onSurface,
+                textDecoration = if (occ.done) TextDecoration.LineThrough else null,
+            )
+            if (occ.body.isNotBlank()) Text(occ.body, style = MaterialTheme.typography.bodySmall, maxLines = 2, color = muted)
+            Text(
+                occ.at.format(Fmt.time) + " · " + occ.rule,
+                style = MaterialTheme.typography.labelMedium,
+                color = if (occ.done) muted else MaterialTheme.colorScheme.primary,
+            )
+        }
+    }
+}
+
+@Composable
+private fun MonthGrid(ym: YearMonth, selected: LocalDate, today: LocalDate, upcoming: Set<LocalDate>, past: Set<LocalDate>, onSelect: (LocalDate) -> Unit) {
     val first = ym.atDay(1)
     val lead = (first.dayOfWeek.value - DayOfWeek.MONDAY.value + 7) % 7
     val cells = lead + ym.lengthOfMonth()
@@ -166,9 +207,15 @@ private fun MonthGrid(ym: YearMonth, selected: LocalDate, today: LocalDate, mark
                                     )
                                 }
                                 // Event dot lives below the highlight so its color is never inverted.
+                                // Accent = something still to come; grey = only delivered ones that day.
                                 Box(
-                                    Modifier.padding(top = 3.dp).size(5.dp).clip(CircleShape)
-                                        .background(if (date in marked) MaterialTheme.colorScheme.tertiary else Color.Transparent)
+                                    Modifier.padding(top = 3.dp).size(5.dp).clip(CircleShape).background(
+                                        when (date) {
+                                            in upcoming -> MaterialTheme.colorScheme.tertiary
+                                            in past -> MaterialTheme.colorScheme.outline
+                                            else -> Color.Transparent
+                                        }
+                                    )
                                 )
                             }
                         }

@@ -13,63 +13,86 @@ import java.time.LocalDateTime
 
 class ImportExportTest {
     private val now = LocalDateTime.parse("2026-09-03T12:00")
+    private val header = "title,details,date,time,repeat,every,weekdays,until,zone,follow_device_zone\n"
 
-    @Test fun plainLineIsRandom() {
-        val r = ImportExport.parseLine("Drink some water", now)
+    private fun one(csv: String) = ImportExport.parseCsv(csv, now).also { assertEquals(it.errors.toString(), 0, it.errors.size) }.reminders.single()
+
+    @Test fun titleOnlyRowIsRandom() {
+        val r = one("Drink some water")
         assertEquals(Kind.RANDOM, r.kind)
         assertEquals("Drink some water", r.title)
     }
 
-    @Test fun dateTimeOnce() {
-        val r = ImportExport.parseLine("Call mom @ 2026-09-10 14:30", now)
+    @Test fun headerlessRowUsesDefaultOrder() {
+        val r = one("Call mom,she is home,2026-09-10,14:30")
         assertEquals(Kind.SCHEDULED, r.kind)
         assertEquals("2026-09-10T14:30", r.localDateTime)
+        assertEquals("she is home", r.body)
         assertEquals(Repeat.NONE, r.repeat)
     }
 
-    @Test fun timeOnlyDailyUsesTodayOrTomorrow() {
-        assertEquals("2026-09-04T09:00", ImportExport.parseLine("Stretch @ 09:00 every day", now).localDateTime)
-        assertEquals("2026-09-03T18:00", ImportExport.parseLine("Stretch @ 6:00pm every day", now).localDateTime)
+    @Test fun headerAllowsAnyColumnOrder() {
+        val r = one("time,title,repeat\n09:00,Stretch,daily")
+        assertEquals("Stretch", r.title)
+        assertEquals(Repeat.DAILY, r.repeat)
+        assertEquals("2026-09-04T09:00", r.localDateTime) // 09:00 already passed today
     }
 
-    @Test fun weekdaysAndBody() {
-        val r = ImportExport.parseLine("Gym @ 18:00 every mon,wed,fri :: bring towel", now)
+    @Test fun timeOnlyTodayIfStillAhead() {
+        assertEquals("2026-09-03T18:00", one(header + "Stretch,,,6:00pm,daily").localDateTime)
+    }
+
+    @Test fun weekdaysQuotedAndSemicolon() {
+        val r = one(header + "Gym,\"bring a towel, and water\",,18:00,weekly,1,\"mon, wed, fri\"")
         assertEquals(Repeat.WEEKLY, r.repeat)
         assertEquals(setOf(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY), r.weekdaySet())
-        assertEquals("bring towel", r.body)
-        assertEquals("Gym", r.title)
+        assertEquals("bring a towel, and water", r.body)
         assertEquals("2026-09-04T18:00", r.localDateTime) // Thursday noon -> Friday
+        val s = one(header + "Standup,,2026-09-07,09:30,weekly,,mon;tue;wed;thu;fri,2026-12-19")
+        assertEquals(5, s.weekdaySet().size); assertEquals("2026-12-19", s.endDate)
     }
 
-    @Test fun everyWeekdayAndUntil() {
-        val r = ImportExport.parseLine("Review @ 2026-09-08 10:00 every 2 weeks until 2026-12-19", now)
-        assertEquals(2, r.interval); assertEquals(Repeat.WEEKLY, r.repeat)
-        assertEquals("2026-09-08T10:00", r.localDateTime); assertEquals("2026-12-19", r.endDate)
-        val w = ImportExport.parseLine("Standup @ 09:30 every weekday", now)
+    @Test fun shorthandRepeatAndZone() {
+        val r = one(header + "Review,,2026-09-08,10:00,weekly,2,,2026-12-19,Europe/Berlin,no")
+        assertEquals(2, r.interval); assertEquals("Europe/Berlin", r.zoneId); assertEquals(false, r.floating)
+        val w = one(header + "Standup,,,09:30,weekdays")
         assertEquals(5, w.weekdaySet().size)
     }
 
-    @Test fun commentsAndErrors() {
-        val res = ImportExport.parseText("# header\n\nA\nB @ nonsense every fortnight\nC every day\n", now)
-        assertEquals(listOf("A"), res.reminders.map { it.title })
-        assertEquals(2, res.errors.size)
+    @Test fun semicolonDelimitedFile() {
+        val res = ImportExport.parseCsv("title;date;time\nDentist;2026-11-03;14:15\n", now)
+        assertEquals("2026-11-03T14:15", res.reminders.single().localDateTime)
     }
 
-    @Test fun jsonRoundTrip() {
-        val parsed = ImportExport.parseJson("""[{"title":"Call mom","at":"2026-09-10T14:30","repeat":"weekly","weekdays":["sun"],"zone":"Europe/Berlin","floating":false},{"title":"Drink water"}]""")
+    @Test fun errorsAreReportedPerRow() {
+        val res = ImportExport.parseCsv(header + "A\nB,,2026-13-45,10:00\nC,,,,daily\n# comment\n\n", now)
+        assertEquals(listOf("A"), res.reminders.map { it.title })
+        assertEquals(2, res.errors.size)
+        assertTrue(res.errors[0].startsWith("Row 3"))
+    }
+
+    @Test fun csvRoundTrip() {
+        val parsed = ImportExport.parse(header + "Call mom,\"quote \"\"hi\"\"\",2026-09-14,18:00,weekly,1,sun,,Europe/Berlin,no\nDrink water", now)
         assertEquals(2, parsed.reminders.size)
-        val json = ImportExport.toJson(parsed.reminders)
-        val again = ImportExport.parseJson(json)
+        val csv = ImportExport.toCsv(parsed.reminders)
+        val again = ImportExport.parse(csv, now)
+        assertEquals(0, again.errors.size)
         assertEquals(parsed.reminders.map { it.dedupeKey }, again.reminders.map { it.dedupeKey })
-        assertEquals("Europe/Berlin", again.reminders[0].zoneId)
+        assertEquals("quote \"hi\"", again.reminders[0].body)
         assertEquals(false, again.reminders[0].floating)
     }
 
+    @Test fun jsonStillAccepted() {
+        val parsed = ImportExport.parse("""[{"title":"Call mom","at":"2026-09-10T14:30","repeat":"weekly","weekdays":["sun"]},{"title":"Drink water"}]""", now)
+        assertEquals(2, parsed.reminders.size)
+        assertEquals(Repeat.WEEKLY, parsed.reminders[0].repeat)
+    }
+
     @Test fun dedupeIgnoresCaseAndWhitespace() {
-        val a = ImportExport.parseLine("Drink   water ", now)
-        val b = ImportExport.parseLine("drink water", now)
+        val a = one("Drink   water ")
+        val b = one("drink water")
         assertEquals(a.dedupeKey, b.dedupeKey)
-        val c = ImportExport.parseLine("drink water @ 2026-09-10 14:30", now)
+        val c = one("drink water,,2026-09-10,14:30")
         assertNotEquals(a.dedupeKey, c.dedupeKey)
         assertTrue(Dedupe.keyFor(a).startsWith("drink water|"))
     }

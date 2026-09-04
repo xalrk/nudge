@@ -1,0 +1,13 @@
+title,details,date,time,repeat,every,weekdays,until,zone,follow_device_zone
+Drink some water,,,,,,,,,
+Stand up and stretch,,,,,,,,,
+Text a friend you haven't talked to in a while,,,,,,,,,
+Look out the window for a minute,"Really, a full minute",,,,,,,,
+Call mom,,2026-09-14,18:00,weekly,1,sun,,,
+Stretch,,,09:00,daily,,,,,
+Standup,,,09:30,weekly,1,mon;tue;wed;thu;fri,,,
+Gym,Bring a towel,,18:00,weekly,1,mon;wed;fri,,,
+Pay rent,,2026-10-01,09:00,monthly,1,,,,
+Sprint review,,2026-09-08,10:00,weekly,2,,2026-12-19,,
+Flight to Berlin,Gate closes 06:00,2026-10-20,06:30,,,,,America/Denver,no
+Dentist,,2026-11-03,2:15pm,,,,,,

@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.xalrk.nudge.NudgeApp
+import io.github.xalrk.nudge.data.FiredEvent
 import io.github.xalrk.nudge.data.FrequencyMode
 import io.github.xalrk.nudge.data.Kind
 import io.github.xalrk.nudge.data.Reminder
@@ -28,6 +29,11 @@ class NudgeViewModel(app: Application) : AndroidViewModel(app) {
     private val settingsStore = nudge.settings
 
     val reminders: StateFlow<List<Reminder>> = dao.observeAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Delivered notifications from the last ~13 months, for the calendar. */
+    val history: StateFlow<List<FiredEvent>> = nudge.database.firedEvents()
+        .observeSince(System.currentTimeMillis() - 400L * 24 * 3_600_000L)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val settings: StateFlow<SettingsSnapshot> = settingsStore.observe()
@@ -113,14 +119,14 @@ class NudgeViewModel(app: Application) : AndroidViewModel(app) {
         val (inserted, skipped) = ReminderEngine.importAll(ctx(), parsed.reminders)
         val parts = mutableListOf("Imported $inserted")
         if (skipped > 0) parts += "skipped $skipped duplicate${if (skipped == 1) "" else "s"}"
-        if (parsed.errors.isNotEmpty()) parts += "${parsed.errors.size} line${if (parsed.errors.size == 1) "" else "s"} not understood"
+        if (parsed.errors.isNotEmpty()) parts += "${parsed.errors.size} row${if (parsed.errors.size == 1) "" else "s"} not understood (${parsed.errors.first()})"
         messages.tryEmit(parts.joinToString(", "))
     }
 
     fun exportTo(uri: Uri) = viewModelScope.launch {
-        val json = ImportExport.toJson(dao.all())
+        val csv = ImportExport.toCsv(dao.all())
         val ok = withContext(Dispatchers.IO) {
-            runCatching { ctx().contentResolver.openOutputStream(uri, "wt")?.bufferedWriter()?.use { it.write(json) } }.isSuccess
+            runCatching { ctx().contentResolver.openOutputStream(uri, "wt")?.bufferedWriter()?.use { it.write(csv) } }.isSuccess
         }
         messages.tryEmit(if (ok) "Exported ${reminders.value.size} reminders" else "Export failed")
     }
