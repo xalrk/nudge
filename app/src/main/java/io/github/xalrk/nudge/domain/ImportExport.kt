@@ -52,14 +52,14 @@ object ImportExport {
     )
 
     fun parse(content: String, now: LocalDateTime = LocalDateTime.now()): ParseResult {
-        val trimmed = content.trim().removePrefix("﻿")
+        val trimmed = content.trim().removePrefix("\uFEFF")
         return if (trimmed.startsWith("[") || trimmed.startsWith("{")) parseJson(trimmed) else parseCsv(trimmed, now)
     }
 
     // ----------------------------------------------------------------- csv
 
     fun parseCsv(content: String, now: LocalDateTime = LocalDateTime.now()): ParseResult {
-        val rows = readCsv(content.removePrefix("﻿"))
+        val rows = readCsv(content.removePrefix("\uFEFF"))
         val out = ArrayList<Reminder>()
         val errors = ArrayList<String>()
         if (rows.isEmpty()) return ParseResult(out, errors)
@@ -82,7 +82,7 @@ object ImportExport {
         return ParseResult(out, errors)
     }
 
-    private fun normHeader(s: String) = s.trim().lowercase(Locale.ROOT).replace(Regex("[\\s-]+"), "_").removePrefix("﻿")
+    private fun normHeader(s: String) = s.trim().lowercase(Locale.ROOT).replace(Regex("[\\s-]+"), "_").removePrefix("\uFEFF")
 
     /** Minimal RFC 4180 reader: quoted cells, doubled quotes, newlines inside quotes. Auto-detects ";" delimiters. */
     fun readCsv(text: String): List<List<String>> {
