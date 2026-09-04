@@ -11,6 +11,7 @@ import android.os.Build
 import io.github.xalrk.nudge.NudgeApp
 import io.github.xalrk.nudge.R
 import io.github.xalrk.nudge.data.Reminder
+import io.github.xalrk.nudge.domain.Colors
 import io.github.xalrk.nudge.ui.MainActivity
 
 object Notifier {
@@ -33,8 +34,10 @@ object Notifier {
             Intent(context, AlarmReceiver::class.java).setAction(AlarmReceiver.ACTION_SNOOZE).putExtra(EXTRA_REMINDER_ID, r.id),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        val builder = Notification.Builder(context, NudgeApp.CHANNEL_REMINDERS)
+        val accent = (context.applicationContext as NudgeApp).settings.accentColor
+        val builder = Notification.Builder(context, NudgeApp.reminderChannel(r.sound, r.vibrate))
             .setSmallIcon(R.drawable.ic_notification)
+            .setColor(r.color ?: Colors.complementary(accent))
             .setContentTitle(r.title)
             .setContentIntent(open)
             .setAutoCancel(true)

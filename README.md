@@ -10,6 +10,10 @@ them at random moments during the day.
 
 - **Calendar reminders.** Pick a date and time, optionally repeat every N days,
   weeks (on chosen weekdays), months or years, with an optional end date.
+- **Per-reminder notification style.** Each reminder can have its own color
+  (default: the complementary of the app accent) and sound/vibration on or off.
+- **Repeating series edits.** Changing or deleting an occurrence asks whether to
+  apply it to only that one, this and following, or all.
 - **Random reminders.** Anything without a time fires at an unpredictable moment
   inside your active hours (default 7 am – 11 pm, adjustable). The timing is a
   genuine random process (exponential gaps, so it is memoryless and never falls
@@ -26,8 +30,9 @@ them at random moments during the day.
   "Follow device time zone" off to pin a reminder to the zone it was created in
   (useful for a flight departure). Everything is re-planned automatically when the
   zone or clock changes, after a reboot, and after an app update.
-- **History on the calendar.** Delivered notifications stay on their day, greyed
-  out with a check, so you can tell what already happened from what is coming.
+- **History on the calendar.** Delivered notifications stay on their day in a
+  faded version of their color, so you can tell what already happened from what
+  is coming.
 - **Snooze** from the notification. Missed reminders (phone off) are delivered when
   the phone comes back, except random ones, which are quietly re-rolled so they
   never fire at night.

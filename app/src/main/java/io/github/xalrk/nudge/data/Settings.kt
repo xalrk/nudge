@@ -23,6 +23,8 @@ data class SettingsSnapshot(
     val dynamicColor: Boolean,
     /** ARGB accent used for the whole theme when dynamic color is off. */
     val accentColor: Int,
+    /** User-added swatches shown after the presets. */
+    val customColors: List<Int>,
     val meanIntervalMillis: Long,
     val frequencyMode: FrequencyMode,
     val activeStartHour: Int,
@@ -48,6 +50,10 @@ class Settings(context: Context) {
     var accentColor: Int
         get() = prefs.getInt(KEY_ACCENT, DEFAULT_ACCENT)
         set(v) = prefs.edit().putInt(KEY_ACCENT, v or 0xFF000000.toInt()).apply()
+
+    var customColors: List<Int>
+        get() = prefs.getString(KEY_CUSTOM, "").orEmpty().split(',').mapNotNull { parseHex(it) }
+        set(v) = prefs.edit().putString(KEY_CUSTOM, v.distinct().joinToString(",") { toHex(it) }).apply()
 
     var meanIntervalMillis: Long
         get() = prefs.getLong(KEY_MEAN, DEFAULT_MEAN_MILLIS)
@@ -78,7 +84,7 @@ class Settings(context: Context) {
         get() = prefs.getString(KEY_LAST_UPDATE, null)
         set(v) = prefs.edit().putString(KEY_LAST_UPDATE, v).apply()
 
-    fun snapshot() = SettingsSnapshot(themeMode, dynamicColor, accentColor, meanIntervalMillis, frequencyMode, activeStartHour, activeEndHour, showNextRandomTime, autoUpdateCheck)
+    fun snapshot() = SettingsSnapshot(themeMode, dynamicColor, accentColor, customColors, meanIntervalMillis, frequencyMode, activeStartHour, activeEndHour, showNextRandomTime, autoUpdateCheck)
 
     fun observe(): Flow<SettingsSnapshot> = callbackFlow {
         trySend(snapshot())
@@ -91,6 +97,7 @@ class Settings(context: Context) {
         private const val KEY_THEME = "theme_mode"
         private const val KEY_DYNAMIC = "dynamic_color"
         private const val KEY_ACCENT = "accent_color"
+        private const val KEY_CUSTOM = "custom_colors"
         private const val KEY_MEAN = "mean_interval_millis"
         private const val KEY_MODE = "frequency_mode"
         private const val KEY_START = "active_start_hour"

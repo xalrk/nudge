@@ -8,7 +8,7 @@ import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [Reminder::class, FiredEvent::class], version = 2, exportSchema = false)
+@Database(entities = [Reminder::class, FiredEvent::class], version = 3, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class NudgeDatabase : RoomDatabase() {
     abstract fun reminders(): ReminderDao
@@ -27,9 +27,18 @@ abstract class NudgeDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `reminders` ADD COLUMN `color` INTEGER")
+                db.execSQL("ALTER TABLE `reminders` ADD COLUMN `sound` INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE `reminders` ADD COLUMN `vibrate` INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE `reminders` ADD COLUMN `excludedDates` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         fun get(context: Context): NudgeDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, NudgeDatabase::class.java, "nudge.db")
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
                 .also { instance = it }
         }

@@ -38,6 +38,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import io.github.xalrk.nudge.ui.theme.NudgeTheme
+import java.time.LocalDate
 
 class MainActivity : ComponentActivity() {
     private val vm: NudgeViewModel by lazy {
@@ -132,23 +133,32 @@ fun NudgeApp(vm: NudgeViewModel = viewModel()) {
         // consumeWindowInsets stops nested top bars and FABs from re-applying the system bar insets.
         NavHost(nav, startDestination = "calendar", modifier = Modifier.padding(padding).consumeWindowInsets(padding)) {
             composable("calendar") {
-                CalendarScreen(vm, onAdd = { nav.navigate("edit/0?kind=SCHEDULED") }, onOpen = { nav.navigate("edit/$it") })
+                CalendarScreen(
+                    vm,
+                    onAdd = { date -> nav.navigate("edit/0?kind=SCHEDULED&date=$date") },
+                    onOpen = { id, occ -> nav.navigate("edit/$id?occ=${occ ?: ""}") },
+                )
             }
             composable("random") {
                 RandomScreen(vm, onAdd = { nav.navigate("edit/0?kind=RANDOM") }, onOpen = { nav.navigate("edit/$it") })
             }
             composable("settings") { SettingsScreen(vm) }
             composable(
-                "edit/{id}?kind={kind}",
+                "edit/{id}?kind={kind}&date={date}&occ={occ}",
                 arguments = listOf(
                     navArgument("id") { type = NavType.LongType },
                     navArgument("kind") { type = NavType.StringType; defaultValue = "SCHEDULED" },
+                    navArgument("date") { type = NavType.StringType; defaultValue = "" },
+                    navArgument("occ") { type = NavType.StringType; defaultValue = "" },
                 )
             ) { entry ->
+                fun dateArg(key: String) = entry.arguments?.getString(key)?.takeIf { it.isNotBlank() }?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
                 EditReminderScreen(
                     vm,
                     id = entry.arguments?.getLong("id") ?: 0L,
                     defaultKind = entry.arguments?.getString("kind") ?: "SCHEDULED",
+                    defaultDate = dateArg("date"),
+                    occurrence = dateArg("occ"),
                     onBack = { nav.popBackStack() },
                 )
             }

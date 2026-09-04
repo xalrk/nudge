@@ -92,3 +92,18 @@ class RecurrenceTest {
         assertEquals("2026-09-10T15:00:00Z", n.toInstant().toString())
     }
 }
+
+class RecurrenceExclusionTest {
+    private val zone = ZoneId.of("America/Denver")
+    private fun z(s: String) = ZonedDateTime.parse(s)
+
+    @Test fun excludedDatesAreSkipped() {
+        val r = Reminder(title = "t", kind = Kind.SCHEDULED, localDateTime = "2026-09-01T09:00", zoneId = zone.id, floating = false, repeat = Repeat.DAILY)
+            .withExcluded(java.time.LocalDate.parse("2026-09-02")).withExcluded(java.time.LocalDate.parse("2026-09-03"))
+        val n = Recurrence.nextOccurrenceAfter(r, z("2026-09-01T09:00-06:00[America/Denver]").toInstant())!!
+        assertEquals("2026-09-04", n.toLocalDate().toString())
+        val month = Recurrence.occurrencesBetween(r, z("2026-09-01T00:00-06:00[America/Denver]"), z("2026-09-06T00:00-06:00[America/Denver]"))
+        assertEquals(listOf("2026-09-01", "2026-09-04", "2026-09-05"), month.map { it.toLocalDate().toString() })
+        assertEquals("2026-09-02,2026-09-03", r.excludedDates)
+    }
+}

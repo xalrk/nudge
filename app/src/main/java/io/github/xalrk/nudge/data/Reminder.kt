@@ -1,5 +1,6 @@
 package io.github.xalrk.nudge.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -48,7 +49,18 @@ data class Reminder(
     val lastFiredAt: Long? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val dedupeKey: String = "",
+    /** ARGB notification color; null = complementary of the app accent. */
+    val color: Int? = null,
+    @ColumnInfo(defaultValue = "1") val sound: Boolean = true,
+    @ColumnInfo(defaultValue = "1") val vibrate: Boolean = true,
+    /** Comma-separated ISO dates of occurrences removed from a repeating series. */
+    @ColumnInfo(defaultValue = "") val excludedDates: String = "",
 ) {
+    fun excludedDateSet(): Set<LocalDate> =
+        excludedDates.split(',').filter { it.isNotBlank() }.mapNotNull { runCatching { LocalDate.parse(it.trim()) }.getOrNull() }.toSet()
+
+    fun withExcluded(date: LocalDate): Reminder = copy(excludedDates = (excludedDateSet() + date).sorted().joinToString(","))
+
     val isScheduled get() = kind == Kind.SCHEDULED
     val isRandom get() = kind == Kind.RANDOM
 

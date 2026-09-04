@@ -15,7 +15,9 @@ import io.github.xalrk.nudge.data.Kind
 import io.github.xalrk.nudge.data.Reminder
 import io.github.xalrk.nudge.data.SettingsSnapshot
 import io.github.xalrk.nudge.data.ThemeMode
+import io.github.xalrk.nudge.domain.Colors
 import io.github.xalrk.nudge.domain.ImportExport
+import java.time.LocalDate
 import io.github.xalrk.nudge.scheduler.Notifier
 import io.github.xalrk.nudge.scheduler.ReminderEngine
 import kotlinx.coroutines.Dispatchers
@@ -59,6 +61,22 @@ class NudgeViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun delete(id: Long) = viewModelScope.launch { ReminderEngine.delete(ctx(), id) }
+
+    fun editSeries(original: Reminder, edited: Reminder, occurrence: LocalDate, scope: ReminderEngine.SeriesScope, onDone: () -> Unit = {}) = viewModelScope.launch {
+        try { ReminderEngine.editSeries(ctx(), original, edited, occurrence, scope); onDone() }
+        catch (e: SQLiteConstraintException) { messages.tryEmit("An identical reminder already exists") }
+        catch (e: Exception) { messages.tryEmit("Could not save: ${e.message}") }
+    }
+
+    fun deleteFromSeries(original: Reminder, occurrence: LocalDate, scope: ReminderEngine.SeriesScope, onDone: () -> Unit = {}) = viewModelScope.launch {
+        ReminderEngine.deleteFromSeries(ctx(), original, occurrence, scope); onDone()
+    }
+
+    fun addCustomColor(argb: Int) { settingsStore.customColors = settingsStore.customColors + argb }
+    fun removeCustomColor(argb: Int) { settingsStore.customColors = settingsStore.customColors - argb }
+
+    /** The color a reminder's notification and calendar dot use. */
+    fun colorOf(r: Reminder?): Int = r?.color ?: Colors.complementary(settingsStore.accentColor)
 
     fun setEnabled(id: Long, enabled: Boolean) = viewModelScope.launch { ReminderEngine.setEnabled(ctx(), id, enabled) }
 

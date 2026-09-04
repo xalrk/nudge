@@ -115,7 +115,12 @@ fun SettingsScreen(vm: NudgeViewModel) {
             if (!settings.dynamicColor || Build.VERSION.SDK_INT < 31) {
                 Spacer(Modifier.height(12.dp))
                 Text("Accent color", style = MaterialTheme.typography.bodyLarge)
-                AccentPicker(current = settings.accentColor, onPick = { vm.setAccentColor(it) })
+                SwatchRow(
+                    current = settings.accentColor, customColors = settings.customColors,
+                    onPick = { it?.let(vm::setAccentColor) }, onAddCustom = { vm.addCustomColor(it) }, onRemoveCustom = { vm.removeCustomColor(it) },
+                )
+                Text("Dark mode lightens the accent so it stays readable on black. Notifications default to the complementary color; each reminder can pick its own.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
             }
 
             HorizontalDivider(Modifier.padding(vertical = 16.dp))
@@ -276,45 +281,6 @@ private fun CsvColumn(name: String, meaning: String) {
     Row {
         Text(name, Modifier.width(140.dp), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
         Text(meaning, style = MaterialTheme.typography.bodySmall)
-    }
-}
-
-@Composable
-private fun AccentPicker(current: Int, onPick: (Int) -> Unit) {
-    var hex by remember(current) { mutableStateOf(Settings.toHex(current)) }
-    val parsed = Settings.parseHex(hex)
-    Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            for ((name, argb) in Settings.ACCENT_PRESETS) {
-                val selected = argb == current
-                Box(
-                    Modifier.size(36.dp).clip(CircleShape)
-                        .background(Color(argb))
-                        .then(if (selected) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape) else Modifier)
-                        .clickable { onPick(argb) }
-                        .semantics { contentDescription = name },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (selected) Icon(Icons.Filled.Check, contentDescription = null, tint = if (Color(argb).luminance() < 0.4f) Color.White else Color.Black, modifier = Modifier.size(18.dp))
-                }
-            }
-        }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(
-                value = hex,
-                onValueChange = { hex = it.take(7) },
-                label = { Text("Hex") },
-                singleLine = true,
-                isError = parsed == null,
-                modifier = Modifier.width(140.dp),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { parsed?.let(onPick) }),
-                trailingIcon = { Box(Modifier.size(20.dp).clip(CircleShape).background(parsed?.let { Color(it) } ?: Color.Transparent)) },
-            )
-            TextButton(enabled = parsed != null && parsed != current, onClick = { parsed?.let(onPick) }) { Text("Apply") }
-        }
-        Text("Any #RRGGBB value works. Dark mode lightens the accent so it stays readable on black.",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

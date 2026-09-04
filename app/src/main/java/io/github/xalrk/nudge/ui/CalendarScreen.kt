@@ -21,7 +21,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -45,7 +44,9 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.xalrk.nudge.data.Kind
 import io.github.xalrk.nudge.data.Reminder
+import io.github.xalrk.nudge.domain.Colors
 import io.github.xalrk.nudge.domain.Recurrence
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -54,35 +55,47 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 
 /** One entry on a calendar day: either a future occurrence of a rule, or a notification that was delivered. */
-data class Occurrence(val at: ZonedDateTime, val title: String, val body: String, val reminderId: Long, val done: Boolean, val rule: String)
+data class Occurrence(val at: ZonedDateTime, val title: String, val body: String, val reminderId: Long, val done: Boolean, val rule: String, val color: Int)
 
 @Composable
-fun CalendarScreen(vm: NudgeViewModel, onAdd: () -> Unit, onOpen: (Long) -> Unit) {
+fun CalendarScreen(vm: NudgeViewModel, onAdd: (LocalDate) -> Unit, onOpen: (Long, LocalDate?) -> Unit) {
     val reminders by vm.reminders.collectAsStateWithLifecycle()
     val history by vm.history.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
     var month by rememberSaveable { mutableStateOf(YearMonth.now().toString()) }
     var selected by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
     val ym = YearMonth.parse(month)
     val selectedDate = LocalDate.parse(selected)
     val zone = ZoneId.systemDefault()
 
-    // Past = what was actually delivered (history); future = what the rules say will come.
-    val occurrences = remember(reminders, history, ym) {
+    // Past = what was actually delivered (history), plus occurrences a reminder is known to have
+    // fired for before the history log existed; future = what the rules say will come.
+    val occurrences = remember(reminders, history, ym, settings.accentColor) {
         val from = ym.atDay(1).atStartOfDay(zone)
         val to = ym.plusMonths(1).atDay(1).atStartOfDay(zone)
         val now = ZonedDateTime.now(zone)
+        val byId = reminders.associateBy { it.id }
+        fun colorOf(r: Reminder?) = vm.colorOf(r)
         val upcomingOnes = reminders.filter { it.isScheduled && it.enabled }.flatMap { r ->
             Recurrence.occurrencesBetween(r, maxOf(from, now), to).map {
-                Occurrence(it.withZoneSameInstant(zone), r.title, r.body, r.id, done = false, rule = Recurrence.describe(r))
+                Occurrence(it.withZoneSameInstant(zone), r.title, r.body, r.id, done = false, rule = Recurrence.describe(r), color = colorOf(r))
             }
         }
-        val doneOnes = history.map { Fmt.instant(it.firedAt) }.zip(history).mapNotNull { (at, e) ->
+        val logged = history.mapNotNull { e ->
+            val at = Fmt.instant(e.firedAt)
             if (at.isBefore(from) || !at.isBefore(to)) null
-            else Occurrence(at, e.title, e.body, e.reminderId, done = true, rule = if (e.kind == io.github.xalrk.nudge.data.Kind.RANDOM) "Random" else "Delivered")
+            else Occurrence(at, e.title, e.body, e.reminderId, done = true, color = Colors.faded(colorOf(byId[e.reminderId])),
+                rule = if (e.kind == Kind.RANDOM) "Random" else "Delivered")
         }
-        (upcomingOnes + doneOnes).groupBy { it.at.toLocalDate() }
+        val loggedKeys = logged.map { it.reminderId to it.at.toLocalDate() }.toSet()
+        val inferred = reminders.filter { it.isScheduled && it.lastFiredAt != null }.flatMap { r ->
+            val last = Fmt.instant(r.lastFiredAt!!)
+            Recurrence.occurrencesBetween(r, from, minOf(to, now)).filter { !it.isAfter(last.plusMinutes(1)) && (r.id to it.toLocalDate()) !in loggedKeys }
+                .map { Occurrence(it.withZoneSameInstant(zone), r.title, r.body, r.id, done = true, rule = "Delivered", color = Colors.faded(colorOf(r))) }
+        }
+        (upcomingOnes + logged + inferred).groupBy { it.at.toLocalDate() }
     }
-    val upcomingDays = remember(occurrences) { occurrences.filterValues { l -> l.any { !it.done } }.keys }
+    val dayDots = remember(occurrences) { occurrences.mapValues { (_, l) -> l.sortedBy { it.at }.map { it.color }.take(4) } }
     val today = LocalDate.now()
     val dayList = (occurrences[selectedDate] ?: emptyList()).sortedBy { it.at }
     val upcoming = remember(reminders) {
@@ -92,7 +105,7 @@ fun CalendarScreen(vm: NudgeViewModel, onAdd: () -> Unit, onOpen: (Long) -> Unit
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Nudge") }) },
-        floatingActionButton = { FloatingActionButton(onClick = onAdd, containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) { Icon(Icons.Filled.Add, contentDescription = "Add reminder") } },
+        floatingActionButton = { FloatingActionButton(onClick = { onAdd(selectedDate) }, containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) { Icon(Icons.Filled.Add, contentDescription = "Add reminder") } },
     ) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding)) {
             item {
@@ -101,7 +114,7 @@ fun CalendarScreen(vm: NudgeViewModel, onAdd: () -> Unit, onOpen: (Long) -> Unit
                     Text(ym.format(Fmt.month), Modifier.weight(1f), textAlign = TextAlign.Center, style = MaterialTheme.typography.titleMedium)
                     IconButton(onClick = { month = ym.plusMonths(1).toString() }) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Next month") }
                 }
-                MonthGrid(ym, selectedDate, today, upcoming = upcomingDays, past = occurrences.keys - upcomingDays) { selected = it.toString() }
+                MonthGrid(ym, selectedDate, today, dots = dayDots) { selected = it.toString() }
                 if (ym != YearMonth.now() || selectedDate != today) {
                     TextButton(onClick = { month = YearMonth.now().toString(); selected = today.toString() }, Modifier.padding(horizontal = 8.dp)) { Text("Today") }
                 }
@@ -117,7 +130,7 @@ fun CalendarScreen(vm: NudgeViewModel, onAdd: () -> Unit, onOpen: (Long) -> Unit
                 Text("Nothing scheduled this day.", Modifier.padding(16.dp, 4.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             items(dayList, key = { "${it.done}-${it.reminderId}-${it.at.toInstant().toEpochMilli()}" }) { occ ->
-                OccurrenceRow(occ, onClick = { if (reminders.any { it.id == occ.reminderId }) onOpen(occ.reminderId) })
+                OccurrenceRow(occ, onClick = { if (reminders.any { it.id == occ.reminderId }) onOpen(occ.reminderId, occ.at.toLocalDate()) })
             }
             if (upcoming.isNotEmpty()) {
                 item {
@@ -126,7 +139,8 @@ fun CalendarScreen(vm: NudgeViewModel, onAdd: () -> Unit, onOpen: (Long) -> Unit
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 items(upcoming, key = { "up-${it.id}" }) { r ->
-                    ReminderRow(r, subtitle = Fmt.instant(r.nextAt!!).format(Fmt.dayTime) + " · " + Fmt.relative(r.nextAt), onClick = { onOpen(r.id) })
+                    ReminderRow(r, subtitle = Fmt.instant(r.nextAt!!).format(Fmt.dayTime) + " · " + Fmt.relative(r.nextAt), color = vm.colorOf(r),
+                        onClick = { onOpen(r.id, Fmt.instant(r.nextAt).toLocalDate()) })
                 }
             }
             item { Box(Modifier.size(80.dp)) }
@@ -141,10 +155,7 @@ private fun OccurrenceRow(occ: Occurrence, onClick: () -> Unit) {
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (occ.done) {
-            Icon(Icons.Filled.Check, contentDescription = "Delivered", tint = muted, modifier = Modifier.size(18.dp).padding(end = 2.dp))
-            Box(Modifier.size(8.dp))
-        }
+        ColorDot(occ.color, Modifier.padding(end = 12.dp))
         Column(Modifier.weight(1f)) {
             Text(
                 occ.title, style = MaterialTheme.typography.bodyLarge, maxLines = 2,
@@ -153,7 +164,7 @@ private fun OccurrenceRow(occ: Occurrence, onClick: () -> Unit) {
             )
             if (occ.body.isNotBlank()) Text(occ.body, style = MaterialTheme.typography.bodySmall, maxLines = 2, color = muted)
             Text(
-                occ.at.format(Fmt.time) + " · " + occ.rule,
+                occ.at.format(Fmt.time) + " · " + occ.rule + if (occ.done) " ✓" else "",
                 style = MaterialTheme.typography.labelMedium,
                 color = if (occ.done) muted else MaterialTheme.colorScheme.primary,
             )
@@ -162,7 +173,7 @@ private fun OccurrenceRow(occ: Occurrence, onClick: () -> Unit) {
 }
 
 @Composable
-private fun MonthGrid(ym: YearMonth, selected: LocalDate, today: LocalDate, upcoming: Set<LocalDate>, past: Set<LocalDate>, onSelect: (LocalDate) -> Unit) {
+private fun MonthGrid(ym: YearMonth, selected: LocalDate, today: LocalDate, dots: Map<LocalDate, List<Int>>, onSelect: (LocalDate) -> Unit) {
     val first = ym.atDay(1)
     val lead = (first.dayOfWeek.value - DayOfWeek.MONDAY.value + 7) % 7
     val cells = lead + ym.lengthOfMonth()
@@ -206,17 +217,11 @@ private fun MonthGrid(ym: YearMonth, selected: LocalDate, today: LocalDate, upco
                                         },
                                     )
                                 }
-                                // Event dot lives below the highlight so its color is never inverted.
-                                // Accent = something still to come; grey = only delivered ones that day.
-                                Box(
-                                    Modifier.padding(top = 3.dp).size(5.dp).clip(CircleShape).background(
-                                        when (date) {
-                                            in upcoming -> MaterialTheme.colorScheme.tertiary
-                                            in past -> MaterialTheme.colorScheme.outline
-                                            else -> Color.Transparent
-                                        }
-                                    )
-                                )
+                                // Dots live below the highlight so their colors are never inverted: one per
+                                // reminder (up to four), in the reminder's color, faded once delivered.
+                                Row(Modifier.padding(top = 3.dp).height(5.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                                    for (c in dots[date].orEmpty()) Box(Modifier.size(5.dp).clip(CircleShape).background(Color(c)))
+                                }
                             }
                         }
                     }

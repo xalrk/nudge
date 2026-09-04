@@ -1,6 +1,12 @@
 package io.github.xalrk.nudge.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -42,9 +48,15 @@ object Fmt {
 }
 
 @Composable
+fun ColorDot(argb: Int, modifier: Modifier = Modifier) {
+    Box(modifier.size(10.dp).clip(CircleShape).background(Color(argb)))
+}
+
+@Composable
 fun ReminderRow(
     r: Reminder,
     subtitle: String,
+    color: Int,
     onClick: () -> Unit,
     onToggle: ((Boolean) -> Unit)? = null,
 ) {
@@ -52,6 +64,7 @@ fun ReminderRow(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        ColorDot(color, Modifier.padding(end = 12.dp))
         Column(Modifier.weight(1f)) {
             Text(r.title, style = MaterialTheme.typography.bodyLarge, maxLines = 2)
             if (r.body.isNotBlank()) Text(r.body, style = MaterialTheme.typography.bodySmall, maxLines = 2,

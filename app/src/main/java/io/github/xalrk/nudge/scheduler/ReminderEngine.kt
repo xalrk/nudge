@@ -19,6 +19,7 @@ import io.github.xalrk.nudge.domain.Recurrence
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
@@ -77,6 +78,71 @@ object ReminderEngine {
         if (s.frequencyMode == io.github.xalrk.nudge.data.FrequencyMode.WHOLE_POOL) resampleAllRandom(context)
         armAlarm(context)
         inserted to skipped
+    }
+
+    enum class SeriesScope { THIS, FOLLOWING, ALL }
+
+    /**
+     * Apply an edit to a repeating series.
+     * THIS: the occurrence on [occDate] is removed from the series and [edited] becomes a standalone one-off.
+     * FOLLOWING: the series ends the day before [occDate]; [edited] starts a new series.
+     * ALL: [edited] replaces the series, keeping its original start date shifted by the same
+     *      number of days the user moved the occurrence.
+     */
+    suspend fun editSeries(context: Context, original: Reminder, edited: Reminder, occDate: LocalDate, scope: SeriesScope): Long = lock.withLock {
+        val dao = dao(context)
+        val s = settings(context)
+        val now = Instant.now()
+        val editedStart = edited.localDateTimeOrNull() ?: return@withLock original.id
+        val id: Long = when (scope) {
+            SeriesScope.THIS -> {
+                dao.update(prepare(original.withExcluded(occDate).withDedupeKey(), s, 0, now))
+                val single = edited.copy(id = 0, repeat = Repeat.NONE, interval = 1, weekdays = 0, endDate = null, excludedDates = "",
+                    nextAt = null, snoozeAt = null, lastFiredAt = null, createdAt = System.currentTimeMillis()).withDedupeKey()
+                dao.insert(prepare(single, s, 0, now))
+            }
+            SeriesScope.FOLLOWING -> {
+                val seriesStart = original.localDateTimeOrNull()?.toLocalDate()
+                if (seriesStart == null || !occDate.isAfter(seriesStart)) {
+                    // Editing from the first occurrence: same as changing everything.
+                    val all = edited.copy(id = original.id).withDedupeKey()
+                    dao.update(prepare(all, s, 0, now)); original.id
+                } else {
+                    val cutoff = occDate.minusDays(1)
+                    val end = original.endDateOrNull()?.let { if (it.isBefore(cutoff)) it else cutoff } ?: cutoff
+                    dao.update(prepare(original.copy(endDate = end.toString()).withDedupeKey(), s, 0, now))
+                    val keep = original.excludedDateSet().filter { !it.isBefore(editedStart.toLocalDate()) }.sorted().joinToString(",")
+                    val next = edited.copy(id = 0, excludedDates = keep, nextAt = null, snoozeAt = null, lastFiredAt = null,
+                        createdAt = System.currentTimeMillis()).withDedupeKey()
+                    dao.insert(prepare(next, s, 0, now))
+                }
+            }
+            SeriesScope.ALL -> {
+                val origStart = original.localDateTimeOrNull()
+                val shift = java.time.temporal.ChronoUnit.DAYS.between(occDate, editedStart.toLocalDate())
+                val newStart = (origStart?.toLocalDate()?.plusDays(shift) ?: editedStart.toLocalDate()).atTime(editedStart.toLocalTime())
+                val all = edited.copy(id = original.id, localDateTime = newStart.format(Reminder.DT_FORMAT), excludedDates = original.excludedDates).withDedupeKey()
+                dao.update(prepare(all, s, 0, now)); original.id
+            }
+        }
+        armAlarm(context)
+        id
+    }
+
+    suspend fun deleteFromSeries(context: Context, original: Reminder, occDate: LocalDate, scope: SeriesScope) = lock.withLock {
+        val dao = dao(context)
+        val s = settings(context)
+        val now = Instant.now()
+        when (scope) {
+            SeriesScope.THIS -> dao.update(prepare(original.withExcluded(occDate).withDedupeKey(), s, 0, now))
+            SeriesScope.FOLLOWING -> {
+                val seriesStart = original.localDateTimeOrNull()?.toLocalDate()
+                if (seriesStart == null || !occDate.isAfter(seriesStart)) { dao.deleteById(original.id); Notifier.cancel(context, original.id) }
+                else dao.update(prepare(original.copy(endDate = occDate.minusDays(1).toString()).withDedupeKey(), s, 0, now))
+            }
+            SeriesScope.ALL -> { dao.deleteById(original.id); Notifier.cancel(context, original.id) }
+        }
+        armAlarm(context)
     }
 
     suspend fun delete(context: Context, id: Long) = lock.withLock {

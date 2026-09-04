@@ -17,8 +17,20 @@ import java.time.temporal.ChronoUnit
  */
 object Recurrence {
 
-    /** First occurrence strictly after [after], or null when the series is over. */
+    /** First occurrence strictly after [after] that is not excluded, or null when the series is over. */
     fun nextOccurrenceAfter(r: Reminder, after: Instant): ZonedDateTime? {
+        val excluded = r.excludedDateSet()
+        var cursor = after
+        var guard = 0
+        while (guard++ < 2000) {
+            val c = nextRawOccurrenceAfter(r, cursor) ?: return null
+            if (c.toLocalDate() !in excluded) return c
+            cursor = c.toInstant()
+        }
+        return null
+    }
+
+    private fun nextRawOccurrenceAfter(r: Reminder, after: Instant): ZonedDateTime? {
         val start = r.localDateTimeOrNull() ?: return null
         val zone = r.effectiveZone()
         val startZ = start.atZone(zone)
