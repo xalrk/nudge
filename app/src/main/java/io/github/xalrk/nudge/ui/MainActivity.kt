@@ -23,7 +23,11 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -118,6 +122,19 @@ fun NudgeApp(vm: NudgeViewModel = viewModel()) {
 
     // Newest message replaces whatever is showing instead of queueing behind it.
     LaunchedEffect(Unit) { vm.messages.collect { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(it) } }
+    // Brief messages hold for ~1.6 s instead of Material's 4 s; a newer one restarts the clock.
+    LaunchedEffect(Unit) {
+        var showing: Job? = null
+        vm.briefMessages.collect { text ->
+            snackbar.currentSnackbarData?.dismiss()
+            showing?.cancel()
+            showing = launch {
+                launch { snackbar.showSnackbar(text, duration = SnackbarDuration.Indefinite) }
+                delay(1600)
+                snackbar.currentSnackbarData?.dismiss()
+            }
+        }
+    }
     LaunchedEffect(Unit) {
         vm.pendingAction.collect { action ->
             when (action) {

@@ -161,13 +161,16 @@ class NudgeViewModel(app: Application) : AndroidViewModel(app) {
 
     private var rerollNotice: Job? = null
 
-    /** Re-rolls immediately; the confirmation appears once, shortly after the tapping stops. */
+    /** Short-lived messages: shown briefly and gone about two seconds after the action. */
+    val briefMessages = MutableSharedFlow<String>(extraBufferCapacity = 8)
+
+    /** Re-rolls immediately; the confirmation appears once, shortly after the tapping stops, and fades fast. */
     fun rerollRandom() {
         viewModelScope.launch { ReminderEngine.resampleAllRandomLocked(ctx()) }
         rerollNotice?.cancel()
         rerollNotice = viewModelScope.launch {
-            delay(900)
-            messages.tryEmit("Random reminders re-rolled")
+            delay(400)
+            briefMessages.tryEmit("Random reminders re-rolled")
         }
     }
 
