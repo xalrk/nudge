@@ -22,6 +22,13 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
@@ -101,12 +108,35 @@ fun CalendarScreen(vm: NudgeViewModel, onAdd: (LocalDate) -> Unit, onOpen: (Long
     val today = LocalDate.now()
     val dayList = (occurrences[selectedDate] ?: emptyList()).sortedBy { it.at }
     var orphan by remember { mutableStateOf<Occurrence?>(null) }
+    var showPauseDate by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Nudge") },
-                actions = { IconButton(onClick = onList) { Icon(Icons.Filled.Search, contentDescription = "All reminders") } },
+                actions = {
+                    // Pause menu: mute everything for a while, or resume.
+                    var pauseMenu by remember { mutableStateOf(false) }
+                    Box {
+                        IconButton(onClick = { pauseMenu = true }) {
+                            if (settings.isPaused) Icon(Icons.Filled.PlayArrow, contentDescription = "Paused, tap to resume", tint = MaterialTheme.colorScheme.primary)
+                            else Icon(Icons.Filled.Pause, contentDescription = "Pause all reminders")
+                        }
+                        DropdownMenu(expanded = pauseMenu, onDismissRequest = { pauseMenu = false }) {
+                            val now = ZonedDateTime.now()
+                            fun morning(daysAhead: Long) = now.toLocalDate().plusDays(daysAhead).atStartOfDay(now.zone).plusHours(settings.activeStartHour.toLong()).toInstant().toEpochMilli()
+                            if (settings.isPaused) {
+                                DropdownMenuItem(text = { Text("Resume now") }, onClick = { pauseMenu = false; vm.setPausedUntil(0L) })
+                                DropdownMenuItem(text = { Text("Paused until " + Fmt.instant(settings.pausedUntil).format(Fmt.dayTime), style = MaterialTheme.typography.bodySmall) }, onClick = { pauseMenu = false }, enabled = false)
+                            } else {
+                                DropdownMenuItem(text = { Text("Pause until tomorrow") }, onClick = { pauseMenu = false; vm.setPausedUntil(morning(1)) })
+                                DropdownMenuItem(text = { Text("Pause for a week") }, onClick = { pauseMenu = false; vm.setPausedUntil(morning(7)) })
+                                DropdownMenuItem(text = { Text("Pause until a date…") }, onClick = { pauseMenu = false; showPauseDate = true })
+                            }
+                        }
+                    }
+                    IconButton(onClick = onList) { Icon(Icons.Filled.Search, contentDescription = "All reminders") }
+                },
             )
         },
         floatingActionButton = { FloatingActionButton(onClick = { onAdd(selectedDate) }, containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) { Icon(Icons.Filled.Add, contentDescription = "Add reminder") } },
@@ -142,6 +172,20 @@ fun CalendarScreen(vm: NudgeViewModel, onAdd: (LocalDate) -> Unit, onOpen: (Long
             }
             item { Box(Modifier.size(80.dp)) }
         }
+    }
+    if (showPauseDate) {
+        val state = rememberDatePickerState(initialSelectedDateMillis = LocalDate.now().plusDays(7).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli())
+        DatePickerDialog(
+            onDismissRequest = { showPauseDate = false },
+            confirmButton = { TextButton(onClick = {
+                state.selectedDateMillis?.let { ms ->
+                    val day = java.time.Instant.ofEpochMilli(ms).atZone(java.time.ZoneOffset.UTC).toLocalDate()
+                    vm.setPausedUntil(day.atStartOfDay(zone).plusHours(settings.activeStartHour.toLong()).toInstant().toEpochMilli())
+                }
+                showPauseDate = false
+            }) { Text("Pause") } },
+            dismissButton = { TextButton(onClick = { showPauseDate = false }) { Text("Cancel") } },
+        ) { DatePicker(state) }
     }
     orphan?.let { o ->
         OrphanDialog(o, onRemove = { o.eventId?.let(vm::deleteHistoryEntry); orphan = null }, onDismiss = { orphan = null })
