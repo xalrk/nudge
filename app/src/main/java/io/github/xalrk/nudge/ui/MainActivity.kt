@@ -12,6 +12,7 @@ import android.graphics.Color
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.xalrk.nudge.ui.theme.isDark
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -128,7 +129,8 @@ fun NudgeApp(vm: NudgeViewModel = viewModel()) {
             }
         }
     ) { padding ->
-        NavHost(nav, startDestination = "calendar", modifier = Modifier.padding(padding)) {
+        // consumeWindowInsets stops nested top bars and FABs from re-applying the system bar insets.
+        NavHost(nav, startDestination = "calendar", modifier = Modifier.padding(padding).consumeWindowInsets(padding)) {
             composable("calendar") {
                 CalendarScreen(vm, onAdd = { nav.navigate("edit/0?kind=SCHEDULED") }, onOpen = { nav.navigate("edit/$it") })
             }

@@ -6,7 +6,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -14,6 +15,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -123,6 +126,7 @@ private fun MonthGrid(ym: YearMonth, selected: LocalDate, today: LocalDate, mark
     val lead = (first.dayOfWeek.value - DayOfWeek.MONDAY.value + 7) % 7
     val cells = lead + ym.lengthOfMonth()
     val rows = (cells + 6) / 7
+    val squircle = RoundedCornerShape(10.dp)
     Column(Modifier.padding(horizontal = 8.dp)) {
         Row(Modifier.fillMaxWidth()) {
             for (d in DayOfWeek.entries) {
@@ -134,32 +138,37 @@ private fun MonthGrid(ym: YearMonth, selected: LocalDate, today: LocalDate, mark
             Row(Modifier.fillMaxWidth()) {
                 for (col in 0 until 7) {
                     val idx = row * 7 + col - lead
-                    Box(Modifier.weight(1f).aspectRatio(1f), contentAlignment = Alignment.Center) {
+                    Box(Modifier.weight(1f).height(52.dp), contentAlignment = Alignment.TopCenter) {
                         if (idx in 0 until ym.lengthOfMonth()) {
                             val date = ym.atDay(idx + 1)
                             val isSel = date == selected
+                            val isToday = date == today
                             Column(
-                                Modifier.fillMaxSize().padding(3.dp).clip(CircleShape)
-                                    .background(if (isSel) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color.Transparent)
-                                    .clickable { onSelect(date) },
+                                Modifier.fillMaxSize().clip(squircle).clickable { onSelect(date) }.padding(top = 6.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center,
                             ) {
-                                Text(
-                                    "${idx + 1}",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = if (date == today) FontWeight.Bold else FontWeight.Normal,
-                                    color = when {
-                                        isSel -> MaterialTheme.colorScheme.onPrimary
-                                        date == today -> MaterialTheme.colorScheme.primary
-                                        else -> MaterialTheme.colorScheme.onSurface
-                                    },
-                                )
+                                // Number sits centred in its own squircle: filled when selected, outlined for today.
                                 Box(
-                                    Modifier.size(5.dp).clip(CircleShape).background(
-                                        if (date in marked) (if (isSel) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.tertiary)
-                                        else androidx.compose.ui.graphics.Color.Transparent
+                                    Modifier.size(32.dp).clip(squircle)
+                                        .background(if (isSel) MaterialTheme.colorScheme.primary else Color.Transparent)
+                                        .then(if (isToday && !isSel) Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, squircle) else Modifier),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text(
+                                        "${idx + 1}",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = if (isToday || isSel) FontWeight.SemiBold else FontWeight.Normal,
+                                        color = when {
+                                            isSel -> MaterialTheme.colorScheme.onPrimary
+                                            isToday -> MaterialTheme.colorScheme.primary
+                                            else -> MaterialTheme.colorScheme.onSurface
+                                        },
                                     )
+                                }
+                                // Event dot lives below the highlight so its color is never inverted.
+                                Box(
+                                    Modifier.padding(top = 3.dp).size(5.dp).clip(CircleShape)
+                                        .background(if (date in marked) MaterialTheme.colorScheme.tertiary else Color.Transparent)
                                 )
                             }
                         }

@@ -82,7 +82,7 @@ fun SettingsScreen(vm: NudgeViewModel) {
             }
             Text("Dark mode is true black for AMOLED screens.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (Build.VERSION.SDK_INT >= 31) Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Use system accent colour", Modifier.weight(1f))
+                Text("Use system accent color", Modifier.weight(1f))
                 Switch(checked = settings.dynamicColor, onCheckedChange = { vm.setDynamicColor(it) })
             }
 
@@ -177,7 +177,7 @@ fun SettingsScreen(vm: NudgeViewModel) {
             }
 
             HorizontalDivider(Modifier.padding(vertical = 16.dp))
-            Text("Nudge 1.0.0 · github.com/xalrk/nudge", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Nudge 1.0.1 · github.com/xalrk/nudge", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(32.dp))
         }
     }
