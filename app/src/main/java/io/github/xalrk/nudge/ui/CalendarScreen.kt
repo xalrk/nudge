@@ -29,6 +29,8 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
+import androidx.compose.material3.TimePicker
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
@@ -109,6 +111,7 @@ fun CalendarScreen(vm: NudgeViewModel, onAdd: (LocalDate) -> Unit, onOpen: (Long
     val dayList = (occurrences[selectedDate] ?: emptyList()).sortedBy { it.at }
     var orphan by remember { mutableStateOf<Occurrence?>(null) }
     var showPauseDate by remember { mutableStateOf(false) }
+    var pauseDay by remember { mutableStateOf<LocalDate?>(null) }
 
     Scaffold(
         topBar = {
@@ -129,9 +132,10 @@ fun CalendarScreen(vm: NudgeViewModel, onAdd: (LocalDate) -> Unit, onOpen: (Long
                                 DropdownMenuItem(text = { Text("Resume now") }, onClick = { pauseMenu = false; vm.setPausedUntil(0L) })
                                 DropdownMenuItem(text = { Text("Paused until " + Fmt.instant(settings.pausedUntil).format(Fmt.dayTime), style = MaterialTheme.typography.bodySmall) }, onClick = { pauseMenu = false }, enabled = false)
                             } else {
+                                DropdownMenuItem(text = { Text("Pause for an hour") }, onClick = { pauseMenu = false; vm.setPausedUntil(System.currentTimeMillis() + 3_600_000L) })
                                 DropdownMenuItem(text = { Text("Pause until tomorrow") }, onClick = { pauseMenu = false; vm.setPausedUntil(morning(1)) })
                                 DropdownMenuItem(text = { Text("Pause for a week") }, onClick = { pauseMenu = false; vm.setPausedUntil(morning(7)) })
-                                DropdownMenuItem(text = { Text("Pause until a date…") }, onClick = { pauseMenu = false; showPauseDate = true })
+                                DropdownMenuItem(text = { Text("Pause until a date and time…") }, onClick = { pauseMenu = false; showPauseDate = true })
                             }
                         }
                     }
@@ -174,18 +178,30 @@ fun CalendarScreen(vm: NudgeViewModel, onAdd: (LocalDate) -> Unit, onOpen: (Long
         }
     }
     if (showPauseDate) {
-        val state = rememberDatePickerState(initialSelectedDateMillis = LocalDate.now().plusDays(7).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli())
+        // Step 1: the day. Step 2 (below) asks for the hour, defaulting to the start of active hours.
+        val state = rememberDatePickerState(initialSelectedDateMillis = LocalDate.now().atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli())
         DatePickerDialog(
             onDismissRequest = { showPauseDate = false },
             confirmButton = { TextButton(onClick = {
-                state.selectedDateMillis?.let { ms ->
-                    val day = java.time.Instant.ofEpochMilli(ms).atZone(java.time.ZoneOffset.UTC).toLocalDate()
-                    vm.setPausedUntil(day.atStartOfDay(zone).plusHours(settings.activeStartHour.toLong()).toInstant().toEpochMilli())
-                }
+                state.selectedDateMillis?.let { ms -> pauseDay = java.time.Instant.ofEpochMilli(ms).atZone(java.time.ZoneOffset.UTC).toLocalDate() }
                 showPauseDate = false
-            }) { Text("Pause") } },
+            }) { Text("Next") } },
             dismissButton = { TextButton(onClick = { showPauseDate = false }) { Text("Cancel") } },
         ) { DatePicker(state) }
+    }
+    pauseDay?.let { day ->
+        val timeState = rememberTimePickerState(initialHour = settings.activeStartHour.coerceIn(0, 23), initialMinute = 0)
+        AlertDialog(
+            onDismissRequest = { pauseDay = null },
+            title = { Text("Resume on ${day.format(Fmt.date)} at") },
+            text = { TimePicker(timeState) },
+            confirmButton = { TextButton(onClick = {
+                val at = day.atTime(timeState.hour, timeState.minute).atZone(zone).toInstant().toEpochMilli()
+                pauseDay = null
+                if (at > System.currentTimeMillis()) vm.setPausedUntil(at) else vm.messages.tryEmit("That time has already passed")
+            }) { Text("Pause") } },
+            dismissButton = { TextButton(onClick = { pauseDay = null }) { Text("Cancel") } },
+        )
     }
     orphan?.let { o ->
         OrphanDialog(o, onRemove = { o.eventId?.let(vm::deleteHistoryEntry); orphan = null }, onDismiss = { orphan = null })
