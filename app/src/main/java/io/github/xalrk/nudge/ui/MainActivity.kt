@@ -116,7 +116,8 @@ fun NudgeApp(vm: NudgeViewModel = viewModel()) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val firstRun = remember { !settings.tutorialSeen }
 
-    LaunchedEffect(Unit) { vm.messages.collect { snackbar.showSnackbar(it) } }
+    // Newest message replaces whatever is showing instead of queueing behind it.
+    LaunchedEffect(Unit) { vm.messages.collect { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(it) } }
     LaunchedEffect(Unit) {
         vm.pendingAction.collect { action ->
             when (action) {

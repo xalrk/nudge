@@ -1,19 +1,9 @@
 package io.github.xalrk.nudge.ui
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -27,6 +17,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -38,20 +30,29 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.random.Random
 
@@ -59,8 +60,8 @@ private data class Page(val title: String, val lines: List<String>, val art: @Co
 
 /**
  * A short first-run walkthrough. It only covers what the layout does not make obvious:
- * how random reminders behave, the calendar's colour language, and what keeps
- * notifications reliable. Reachable again from Settings.
+ * how random reminders behave, the calendar's color language, and what keeps
+ * notifications reliable. Swipe or use the buttons. Reachable again from Settings.
  */
 @Composable
 fun TutorialScreen(onDone: () -> Unit) {
@@ -68,8 +69,8 @@ fun TutorialScreen(onDone: () -> Unit) {
         Page("Nudge", listOf(
             "Reminders on a calendar, plus a pool of reminders with no time at all that surface when you least expect them.",
             "Two minutes of setup is all it needs.",
-        )) { BellArt() },
-        Page("Random reminders", listOf(
+        )) { IntroArt() },
+        Page("Random Reminders", listOf(
             "Anything without a date or time goes into the random pool. Each one fires at an unpredictable moment inside your active hours, about once every two weeks on average by default.",
             "They work best as a big list you rarely think about: affirmations, small habits, questions to sit with, things you keep meaning to do. Import a whole list at once from Settings.",
             "The Settings slider sets the average rate for the pool; any reminder can override it with its own rate.",
@@ -85,26 +86,23 @@ fun TutorialScreen(onDone: () -> Unit) {
             "Every notification can be snoozed for 10 minutes, an hour, or until tomorrow morning.",
         )) { RingArt() },
     )
-    var index by remember { mutableIntStateOf(0) }
+    val pager = rememberPagerState { pages.size }
+    val scope = rememberCoroutineScope()
+    val index = pager.currentPage
     val last = index == pages.lastIndex
+    fun go(page: Int) { scope.launch { pager.animateScrollToPage(page.coerceIn(0, pages.lastIndex)) } }
 
     Scaffold { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 24.dp)) {
-            Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.End) {
+        Column(Modifier.fillMaxSize().padding(padding)) {
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp, end = 12.dp), horizontalArrangement = Arrangement.End) {
                 if (!last) TextButton(onClick = onDone) { Text("Skip") }
             }
-            AnimatedContent(
-                targetState = index,
-                transitionSpec = {
-                    val forward = targetState > initialState
-                    (slideInHorizontally(tween(320, easing = FastOutSlowInEasing)) { if (forward) it / 3 else -it / 3 } + fadeIn(tween(320)))
-                        .togetherWith(slideOutHorizontally(tween(220)) { if (forward) -it / 3 else it / 3 } + fadeOut(tween(180)))
-                },
-                modifier = Modifier.weight(1f),
-                label = "tutorial page",
-            ) { i ->
+            HorizontalPager(state = pager, modifier = Modifier.weight(1f), beyondViewportPageCount = 0) { i ->
                 val page = pages[i]
-                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.Center) {
+                Column(
+                    Modifier.fillMaxSize().padding(horizontal = 24.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.Center,
+                ) {
                     Box(Modifier.fillMaxWidth().height(180.dp), contentAlignment = Alignment.Center) { page.art() }
                     Spacer(Modifier.height(24.dp))
                     Text(page.title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
@@ -114,7 +112,7 @@ fun TutorialScreen(onDone: () -> Unit) {
                     }
                 }
             }
-            Row(Modifier.fillMaxWidth().padding(vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     pages.indices.forEach { i ->
                         Box(
@@ -124,41 +122,78 @@ fun TutorialScreen(onDone: () -> Unit) {
                     }
                 }
                 Spacer(Modifier.weight(1f))
-                if (index > 0) TextButton(onClick = { index-- }) { Text("Back") }
+                if (index > 0) TextButton(onClick = { go(index - 1) }) { Text("Back") }
                 Spacer(Modifier.width(8.dp))
-                Button(onClick = { if (last) onDone() else index++ }) { Text(if (last) "Done" else "Next") }
+                Button(onClick = { if (last) onDone() else go(index + 1) }) { Text(if (last) "Done" else "Next") }
             }
         }
     }
 }
 
-/** The bell scales in with a soft overshoot and a ring expands once behind it. */
+/** Ease-out with overshoot, for drops and pops. */
+private fun backOut(x: Float, k: Float = 1.7f): Float { val t = x - 1f; return 1f + t * t * ((k + 1f) * t + k) }
+
+/**
+ * The intro: the bell drops in and bounces, rings, the red badge pops onto its shoulder and
+ * a burst of colored dots scatters from it. Skipped entirely when the system reduces animations.
+ */
 @Composable
-private fun BellArt() {
-    val enter = remember { Animatable(0f) }
-    LaunchedEffect(Unit) { enter.animateTo(1f, tween(700, easing = FastOutSlowInEasing)) }
+private fun IntroArt() {
+    val reduced = rememberAnimationsReduced()
+    val t = remember { Animatable(if (reduced) 1f else 0f) }
+    LaunchedEffect(Unit) { if (!reduced) t.animateTo(1f, tween(2400, easing = LinearEasing)) }
     val primary = MaterialTheme.colorScheme.primary
-    Box(contentAlignment = Alignment.Center) {
-        Canvas(Modifier.size(180.dp)) {
-            val t = enter.value
-            drawCircle(primary.copy(alpha = (1f - t) * 0.5f), radius = size.minDimension / 2 * (0.4f + 0.6f * t))
+    val badge = Color(0xFFFF3B30)
+    val burstColors = remember { listOf(0xFFFF3B30, 0xFFFFB300, 0xFF2ECC71, 0xFF8C9EFF, 0xFFFF6A1F, 0xFF00BFA5, 0xFFD81B60, 0xFF40C4FF).map { Color(it) } }
+    val angles = remember { List(8) { it * (2f * PI.toFloat() / 8f) + 0.3f } }
+
+    Box(Modifier.fillMaxWidth().height(180.dp), contentAlignment = Alignment.Center) {
+        // Burst dots, drawn behind the bell.
+        Canvas(Modifier.fillMaxSize()) {
+            val v = t.value
+            val b = ((v - 0.66f) / 0.34f).coerceIn(0f, 1f)
+            if (b > 0f) {
+                val origin = Offset(size.width / 2 + 28.dp.toPx(), size.height / 2 - 30.dp.toPx())
+                val ease = 1f - (1f - b).pow(2)
+                angles.forEachIndexed { i, a ->
+                    val dist = (34f + 26f * (i % 3)) * ease
+                    val p = origin + Offset(cos(a) * dist.dp.toPx(), sin(a) * dist.dp.toPx())
+                    drawCircle(burstColors[i].copy(alpha = (1f - b).coerceIn(0f, 1f)), radius = (4f + (i % 2) * 2f).dp.toPx() * (0.5f + 0.5f * ease), center = p)
+                }
+            }
         }
+        // Bell: drop, then ring.
         BellShape(Modifier.size(96.dp).graphicsLayer {
-            val s = 0.6f + 0.4f * enter.value + 0.08f * sin(enter.value * Math.PI.toFloat())
-            scaleX = s; scaleY = s; alpha = enter.value.coerceIn(0f, 1f)
-        })
+            val v = t.value
+            val drop = (v / 0.35f).coerceIn(0f, 1f)
+            translationY = (1f - backOut(drop)) * -140.dp.toPx()
+            val ring = ((v - 0.35f) / 0.3f).coerceIn(0f, 1f)
+            transformOrigin = TransformOrigin(0.5f, 0.15f)
+            rotationZ = if (ring in 0f..1f && v > 0.35f) sin(ring * PI.toFloat() * 4f) * 14f * (1f - ring) else 0f
+            alpha = drop.coerceAtLeast(0.01f)
+        }, color = primary)
+        // Badge: pop.
+        Box(Modifier.fillMaxSize()) {
+            Canvas(Modifier.fillMaxSize().graphicsLayer {
+                val v = t.value
+                val pop = ((v - 0.58f) / 0.18f).coerceIn(0f, 1f)
+                val s = if (v < 0.58f) 0f else backOut(pop, 2.2f)
+                scaleX = s; scaleY = s
+                transformOrigin = TransformOrigin(0.5f + 28f / 360f, 0.5f - 30f / 180f)
+            }) {
+                drawCircle(badge, radius = 12.dp.toPx(), center = Offset(size.width / 2 + 28.dp.toPx(), size.height / 2 - 30.dp.toPx()))
+            }
+        }
     }
 }
 
 @Composable
-private fun BellShape(modifier: Modifier) {
-    val color = MaterialTheme.colorScheme.primary
+private fun BellShape(modifier: Modifier, color: Color = MaterialTheme.colorScheme.primary) {
     Canvas(modifier) {
         val w = size.width
-        // Bell body: same silhouette as the launcher icon, drawn as simple shapes.
         val bodyW = w * 0.56f
         val left = (w - bodyW) / 2
-        drawRoundRect(color, topLeft = Offset(left, w * 0.22f), size = Size(bodyW, w * 0.5f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(bodyW / 2, bodyW / 2))
+        drawRoundRect(color, topLeft = Offset(left, w * 0.22f), size = Size(bodyW, w * 0.5f), cornerRadius = CornerRadius(bodyW / 2, bodyW / 2))
         drawRect(color, topLeft = Offset(left, w * 0.45f), size = Size(bodyW, w * 0.3f))
         drawRect(color, topLeft = Offset(left - w * 0.06f, w * 0.72f), size = Size(bodyW + w * 0.12f, w * 0.06f))
         drawCircle(color, radius = w * 0.06f, center = Offset(w / 2, w * 0.2f))
@@ -166,14 +201,24 @@ private fun BellShape(modifier: Modifier) {
     }
 }
 
-/** A week-long timeline; dots pop in at random moments inside the daytime band, never at night. */
+/** A week-long timeline; dots pop in at random moments inside the daytime band, never at night. Loops with fresh moments each pass. */
 @Composable
 private fun RandomArt() {
     val progress = remember { Animatable(0f) }
-    LaunchedEffect(Unit) { progress.animateTo(1f, tween(2600, easing = LinearEasing)) }
-    val seed = remember { Random(System.nanoTime()) }
-    val hits = remember { List(9) { seed.nextFloat() } .sorted() }
-    val jitter = remember { List(9) { seed.nextFloat() } }
+    var hits by remember { mutableStateOf(List(9) { Random.nextFloat() }.sorted()) }
+    var jitter by remember { mutableStateOf(List(9) { Random.nextFloat() }) }
+    // Teaching animation: pinned to normal speed regardless of the system animation setting.
+    LaunchedEffect(Unit) {
+        withContext(NormalMotion) {
+            while (true) {
+                progress.snapTo(0f)
+                progress.animateTo(1f, tween(2600, easing = LinearEasing))
+                delay(700)
+                hits = List(9) { Random.nextFloat() }.sorted()
+                jitter = List(9) { Random.nextFloat() }
+            }
+        }
+    }
     val primary = MaterialTheme.colorScheme.primary
     val band = MaterialTheme.colorScheme.surfaceContainerHigh
     val muted = MaterialTheme.colorScheme.outlineVariant
@@ -183,7 +228,7 @@ private fun RandomArt() {
         val top = size.height * 0.25f
         val bandH = size.height * 0.45f
         for (d in 0 until days) {
-            drawRoundRect(band, topLeft = Offset(d * colW + 3.dp.toPx(), top), size = Size(colW - 6.dp.toPx(), bandH), cornerRadius = androidx.compose.ui.geometry.CornerRadius(6.dp.toPx()))
+            drawRoundRect(band, topLeft = Offset(d * colW + 3.dp.toPx(), top), size = Size(colW - 6.dp.toPx(), bandH), cornerRadius = CornerRadius(6.dp.toPx()))
             drawLine(muted, Offset(d * colW + colW / 2, top + bandH + 10.dp.toPx()), Offset(d * colW + colW / 2, top + bandH + 16.dp.toPx()), strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round)
         }
         val t = progress.value
@@ -194,7 +239,6 @@ private fun RandomArt() {
                 drawCircle(primary, radius = r, center = Offset(h * size.width, top + bandH * (0.15f + 0.7f * jitter[i])))
             }
         }
-        // Playhead.
         drawLine(primary.copy(alpha = 0.6f), Offset(t * size.width, top - 6.dp.toPx()), Offset(t * size.width, top + bandH + 6.dp.toPx()), strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round)
     }
 }
@@ -203,7 +247,7 @@ private fun RandomArt() {
 @Composable
 private fun CalendarArt() {
     val progress = remember { Animatable(0f) }
-    LaunchedEffect(Unit) { progress.animateTo(1f, tween(2200, easing = FastOutSlowInEasing)) }
+    LaunchedEffect(Unit) { withContext(NormalMotion) { progress.animateTo(1f, tween(2200, easing = FastOutSlowInEasing)) } }
     val primary = MaterialTheme.colorScheme.primary
     val second = MaterialTheme.colorScheme.tertiary
     val onSurface = MaterialTheme.colorScheme.onSurface
@@ -216,7 +260,7 @@ private fun CalendarArt() {
         for (d in 0 until days) {
             val cx = d * colW + colW / 2
             val cy = size.height * 0.45f
-            if (d == today) drawRoundRect(primary, topLeft = Offset(cx - 16.dp.toPx(), cy - 16.dp.toPx()), size = Size(32.dp.toPx(), 32.dp.toPx()), cornerRadius = androidx.compose.ui.geometry.CornerRadius(10.dp.toPx()))
+            if (d == today) drawRoundRect(primary, topLeft = Offset(cx - 16.dp.toPx(), cy - 16.dp.toPx()), size = Size(32.dp.toPx(), 32.dp.toPx()), cornerRadius = CornerRadius(10.dp.toPx()))
             else drawCircle(onSurface, radius = 3.dp.toPx(), center = Offset(cx, cy))
             val appear = ((t - d * 0.08f) / 0.25f).coerceIn(0f, 1f)
             if (appear > 0f && d != 1 && d != 5) {
@@ -227,14 +271,16 @@ private fun CalendarArt() {
     }
 }
 
-
-/** The bell rings: a gentle repeating rotation around its top. */
+/** The bell rings: a gentle repeating swing around its top. */
 @Composable
 private fun RingArt() {
-    val transition = rememberInfiniteTransition(label = "ring")
-    val angle by transition.animateFloat(0f, 1f, infiniteRepeatable(tween(1400, easing = LinearEasing), RepeatMode.Restart), label = "angle")
+    val phase = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        withContext(NormalMotion) { while (true) { phase.snapTo(0f); phase.animateTo(1f, tween(1400, easing = LinearEasing)) } }
+    }
     BellShape(Modifier.size(96.dp).graphicsLayer {
-        transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0.15f)
-        rotationZ = sin(angle * Math.PI.toFloat() * 2f) * 10f * (1f - angle * 0.4f)
+        transformOrigin = TransformOrigin(0.5f, 0.15f)
+        val a = phase.value
+        rotationZ = sin(a * PI.toFloat() * 2f) * 10f * (1f - a * 0.4f)
     })
 }

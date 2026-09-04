@@ -22,23 +22,11 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.foundation.Canvas
-import androidx.compose.material3.LocalContentColor
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import kotlin.random.Random
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.MotionDurationScale
-import androidx.compose.ui.graphics.graphicsLayer
 import kotlinx.coroutines.launch
-import kotlin.math.PI
-import kotlin.math.sin
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -62,34 +50,31 @@ fun RandomScreen(vm: NudgeViewModel, onAdd: () -> Unit, onOpen: (Long) -> Unit) 
             TopAppBar(
                 title = { Text("Random Reminders") },
                 actions = {
-                    // Roll: the die spins in place around two axes, flicks through faces, lands on a random one.
+                    // Roll: a real cube tumbles around two axes and eases onto one flat, random face.
                     val spin = remember { Animatable(0f) }
-                    var face by remember { mutableIntStateOf(Random.nextInt(1, 7)) }
+                    var fromAngles by remember { mutableStateOf(anglesFor(Random.nextInt(1, 7))) }
+                    var toAngles by remember { mutableStateOf(fromAngles) }
+                    var turns by remember { mutableStateOf(0f to 0f) }
                     val scope = rememberCoroutineScope()
                     IconButton(onClick = {
                         vm.rerollRandom()
-                        scope.launch(object : MotionDurationScale { override val scaleFactor: Float get() = 1f }) {
-                            val flicker = List(14) { Random.nextInt(1, 7) }
+                        // The roll is the only cue that the re-roll happened, so it plays even with animations reduced.
+                        scope.launch(NormalMotion) {
                             val landing = Random.nextInt(1, 7)
+                            // Continue from wherever the die is now so rapid taps never jump.
+                            val t = spin.value
+                            fromAngles = (fromAngles.first + (toAngles.first + turns.first - fromAngles.first) * t) to
+                                (fromAngles.second + (toAngles.second + turns.second - fromAngles.second) * t)
+                            toAngles = anglesFor(landing)
+                            turns = (360f * Random.nextInt(1, 3)) to (360f * Random.nextInt(2, 4))
                             spin.snapTo(0f)
-                            spin.animateTo(1f, tween(1000, easing = FastOutSlowInEasing)) {
-                                face = if (value < 0.8f) flicker[(value / 0.8f * flicker.size).toInt().coerceIn(0, flicker.lastIndex)] else landing
-                            }
+                            spin.animateTo(1f, tween(1100, easing = FastOutSlowInEasing))
                         }
                     }) {
-                        // spin.value is read inside the layer block, so each frame only updates the
-                        // GPU transform of this one layer; nothing recomposes or redraws until the face changes.
-                        DieFace(
-                            face,
-                            Modifier.size(24.dp).graphicsLayer {
-                                val t = spin.value
-                                rotationY = t * 720f
-                                rotationX = t * 360f
-                                cameraDistance = 8f * density
-                                val s = 1f + 0.15f * sin(t * PI.toFloat())
-                                scaleX = s; scaleY = s
-                            },
-                        )
+                        val t = spin.value
+                        val rx = fromAngles.first + (toAngles.first + turns.first - fromAngles.first) * t
+                        val ry = fromAngles.second + (toAngles.second + turns.second - fromAngles.second) * t
+                        Die3D(rx, ry, Modifier.size(28.dp), description = "Re-roll times")
                     }
                 },
             )
@@ -129,29 +114,6 @@ fun RandomScreen(vm: NudgeViewModel, onAdd: () -> Unit, onOpen: (Long) -> Unit) 
             }
             item { Box(Modifier.size(80.dp)) }
         }
-    }
-}
-
-/** A die face drawn in the current content color: rounded outline plus 1..6 pips. */
-@Composable
-private fun DieFace(face: Int, modifier: Modifier = Modifier) {
-    val color = LocalContentColor.current
-    Canvas(modifier.semantics { contentDescription = "Re-roll times" }) {
-        val w = size.width
-        val stroke = w * 0.09f
-        drawRoundRect(color, topLeft = Offset(stroke / 2, stroke / 2), size = Size(w - stroke, w - stroke),
-            cornerRadius = CornerRadius(w * 0.22f), style = Stroke(stroke))
-        val c = w / 2
-        val o = w * 0.24f
-        val pips: List<Offset> = when (face.coerceIn(1, 6)) {
-            1 -> listOf(Offset(c, c))
-            2 -> listOf(Offset(c - o, c - o), Offset(c + o, c + o))
-            3 -> listOf(Offset(c - o, c - o), Offset(c, c), Offset(c + o, c + o))
-            4 -> listOf(Offset(c - o, c - o), Offset(c + o, c - o), Offset(c - o, c + o), Offset(c + o, c + o))
-            5 -> listOf(Offset(c - o, c - o), Offset(c + o, c - o), Offset(c, c), Offset(c - o, c + o), Offset(c + o, c + o))
-            else -> listOf(Offset(c - o, c - o), Offset(c + o, c - o), Offset(c - o, c), Offset(c + o, c), Offset(c - o, c + o), Offset(c + o, c + o))
-        }
-        for (p in pips) drawCircle(color, radius = w * 0.085f, center = p)
     }
 }
 

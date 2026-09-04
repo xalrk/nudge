@@ -132,7 +132,7 @@ fun SettingsScreen(vm: NudgeViewModel, onTutorial: () -> Unit) {
             }
 
             HorizontalDivider(Modifier.padding(vertical = 16.dp))
-            SectionTitle("Random reminders")
+            SectionTitle("Random Reminders")
             Text("Average frequency", style = MaterialTheme.typography.bodyLarge)
             Text(
                 Settings.describeInterval(Settings.sliderToMillis(slider)).replaceFirstChar { it.uppercase() },

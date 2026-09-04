@@ -22,6 +22,8 @@ import java.time.LocalDate
 import io.github.xalrk.nudge.scheduler.Notifier
 import io.github.xalrk.nudge.scheduler.ReminderEngine
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -157,9 +159,16 @@ class NudgeViewModel(app: Application) : AndroidViewModel(app) {
         Notifier.show(ctx(), Reminder(id = Int.MAX_VALUE.toLong(), title = "Nudge test", body = "Notifications are working.", kind = Kind.RANDOM))
     }
 
-    fun rerollRandom() = viewModelScope.launch {
-        ReminderEngine.resampleAllRandomLocked(ctx())
-        messages.tryEmit("Random reminders re-rolled")
+    private var rerollNotice: Job? = null
+
+    /** Re-rolls immediately; the confirmation appears once, shortly after the tapping stops. */
+    fun rerollRandom() {
+        viewModelScope.launch { ReminderEngine.resampleAllRandomLocked(ctx()) }
+        rerollNotice?.cancel()
+        rerollNotice = viewModelScope.launch {
+            delay(900)
+            messages.tryEmit("Random reminders re-rolled")
+        }
     }
 
     // ------------------------------------------------------------- import / export
