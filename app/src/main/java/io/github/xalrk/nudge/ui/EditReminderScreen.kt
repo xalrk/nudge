@@ -57,6 +57,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -301,11 +302,15 @@ fun EditReminderScreen(
             }
 
             Text("Notification", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 4.dp))
+            // Turning either on previews it, so you hear or feel what the notification will do.
+            val context = LocalContext.current
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("Sound", Modifier.weight(1f)); Spacer(Modifier.width(16.dp)); Switch(checked = sound, onCheckedChange = { sound = it })
+                Text("Sound", Modifier.weight(1f)); Spacer(Modifier.width(16.dp))
+                Switch(checked = sound, onCheckedChange = { sound = it; if (it) Preview.sound(context) })
             }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("Vibration", Modifier.weight(1f)); Spacer(Modifier.width(16.dp)); Switch(checked = vibrate, onCheckedChange = { vibrate = it })
+                Text("Vibration", Modifier.weight(1f)); Spacer(Modifier.width(16.dp))
+                Switch(checked = vibrate, onCheckedChange = { vibrate = it; if (it) Preview.vibrate(context) })
             }
             Text("Color", style = MaterialTheme.typography.bodyLarge)
             Text("\"A\" follows the app accent (its complementary color).", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
