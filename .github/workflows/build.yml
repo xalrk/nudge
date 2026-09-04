@@ -21,10 +21,14 @@ jobs:
         run: ./gradlew testDebugUnitTest --no-daemon
 
       - name: Restore release keystore
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
-        run: echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          else
+            echo "No keystore secret; the APK will be signed with the debug key."
+          fi
 
       - name: Build release APK
         run: ./gradlew assembleRelease --no-daemon
