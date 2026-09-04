@@ -103,7 +103,8 @@ fun RandomScreen(vm: NudgeViewModel, onAdd: () -> Unit, onOpen: (Long) -> Unit) 
                     Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             items(random, key = { it.id }) { r ->
-                val rate = r.meanOverrideMillis?.let { " · " + Settings.describeInterval(it) } ?: ""
+                val rate = (r.meanOverrideMillis?.let { " · " + Settings.describeInterval(it) } ?: "") +
+                    (r.randomDaysOrNull()?.let { d -> " · " + java.time.DayOfWeek.entries.filter { it in d }.joinToString(" ") { it.name.take(2).lowercase().replaceFirstChar(Char::uppercase) } } ?: "")
                 val sub = when {
                     !r.enabled -> "Paused"
                     r.nextAt == null -> "Waiting"

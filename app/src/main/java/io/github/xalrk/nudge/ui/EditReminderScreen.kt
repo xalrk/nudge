@@ -107,6 +107,8 @@ fun EditReminderScreen(
     var sound by remember { mutableStateOf(true) }
     var vibrate by remember { mutableStateOf(true) }
     var customRate by remember { mutableStateOf(false) }
+    var customDays by remember { mutableStateOf(false) }
+    var randomDays by remember { mutableStateOf(setOf<DayOfWeek>()) }
     var rateSlider by remember { mutableStateOf(Settings.millisToSlider(Settings.DEFAULT_MEAN_MILLIS)) }
     var showDate by remember { mutableStateOf(false) }
     var showTime by remember { mutableStateOf(false) }
@@ -123,6 +125,8 @@ fun EditReminderScreen(
             floating = existing.floating; zoneId = existing.zoneId ?: ZoneId.systemDefault().id
             enabled = existing.enabled; color = existing.color; sound = existing.sound; vibrate = existing.vibrate
             customRate = existing.meanOverrideMillis != null
+            customDays = existing.isRandom && existing.weekdays != 0
+            randomDays = existing.randomDaysOrNull() ?: settings.activeDaySet()
             rateSlider = Settings.millisToSlider(existing.meanOverrideMillis ?: settings.meanIntervalMillis)
             loaded = true
         }
@@ -137,10 +141,13 @@ fun EditReminderScreen(
         val base = existing ?: Reminder(title = "", kind = kind)
         val common = base.copy(title = title.trim(), body = body.trim(), color = color, sound = sound, vibrate = vibrate)
         return if (kind == Kind.RANDOM) common.copy(
-            kind = Kind.RANDOM, localDateTime = null, zoneId = null, repeat = Repeat.NONE, interval = 1, weekdays = 0, endDate = null,
+            kind = Kind.RANDOM, localDateTime = null, zoneId = null, repeat = Repeat.NONE, interval = 1, endDate = null,
+            weekdays = if (customDays && randomDays.isNotEmpty()) Reminder.maskOf(randomDays) else 0,
             excludedDates = "", enabled = enabled, meanOverrideMillis = if (customRate) Settings.sliderToMillis(rateSlider) else null,
-            // A changed rate needs a fresh roll; otherwise keep the pending time.
-            nextAt = if (existing?.isRandom == true && existing.meanOverrideMillis == (if (customRate) Settings.sliderToMillis(rateSlider) else null)) existing.nextAt else null,
+            // A changed rate or day set needs a fresh roll; otherwise keep the pending time.
+            nextAt = if (existing?.isRandom == true
+                && existing.meanOverrideMillis == (if (customRate) Settings.sliderToMillis(rateSlider) else null)
+                && existing.weekdays == (if (customDays && randomDays.isNotEmpty()) Reminder.maskOf(randomDays) else 0)) existing.nextAt else null,
         ) else common.copy(
             meanOverrideMillis = null,
             kind = Kind.SCHEDULED,
@@ -208,6 +215,21 @@ fun EditReminderScreen(
                 if (customRate) SliderGuard(value = rateSlider, onCommit = { rateSlider = it }, onFinished = {}) { onChange, onFinished ->
                     Slider(value = rateSlider, onValueChange = onChange, onValueChangeFinished = onFinished)
                 }
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Custom days")
+                        Text(
+                            if (customDays) "Only on the selected days" else "Uses the Settings active days",
+                            style = MaterialTheme.typography.bodySmall, color = if (customDays) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Spacer(Modifier.width(16.dp))
+                    Switch(checked = customDays, onCheckedChange = { on -> customDays = on; if (on && randomDays.isEmpty()) randomDays = settings.activeDaySet() })
+                }
+                if (customDays) DayCircles(selected = randomDays, onToggle = { d ->
+                    val next = if (d in randomDays) randomDays - d else randomDays + d
+                    if (next.isNotEmpty()) randomDays = next
+                })
                 if (!isNew) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("Enabled", Modifier.weight(1f)); Spacer(Modifier.width(16.dp)); Switch(checked = enabled, onCheckedChange = { enabled = it })
                 }

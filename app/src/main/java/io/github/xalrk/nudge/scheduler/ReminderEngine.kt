@@ -198,7 +198,7 @@ object ReminderEngine {
                     }
                 }
                 Kind.RANDOM -> {
-                    if (resampleRandom || r.nextAt == null) r.copy(nextAt = sampleRandom(s, pool, now, r.meanOverrideMillis)) else null
+                    if (resampleRandom || r.nextAt == null) r.copy(nextAt = sampleRandom(s, pool, now, r)) else null
                 }
             }
         }
@@ -252,8 +252,8 @@ object ReminderEngine {
                         // Only deliver inside active hours; a random reminder that came due while the
                         // phone was off overnight is simply re-rolled instead of waking anyone up.
                         val z = now.atZone(ZoneId.systemDefault())
-                        if (!dueDuringPause && RandomScheduler.isInsideActiveWindow(z, s.activeStartHour, s.activeEndHour, s.activeDaySet())) fire = true
-                        updated = updated.copy(nextAt = sampleRandom(s, pool, now, r.meanOverrideMillis))
+                        if (!dueDuringPause && RandomScheduler.isInsideActiveWindow(z, s.activeStartHour, s.activeEndHour, r.randomDaysOrNull() ?: s.activeDaySet())) fire = true
+                        updated = updated.copy(nextAt = sampleRandom(s, pool, now, r))
                     }
                 }
             }
@@ -312,7 +312,7 @@ object ReminderEngine {
         val s = settings(context)
         val pool = dao.enabledRandom()
         val now = Instant.now()
-        dao.updateAll(pool.map { it.copy(nextAt = sampleRandom(s, pool.size, now, it.meanOverrideMillis)) })
+        dao.updateAll(pool.map { it.copy(nextAt = sampleRandom(s, pool.size, now, it)) })
     }
 
     private fun prepare(r: Reminder, s: SettingsSnapshot, pool: Int, now: Instant): Reminder {
@@ -322,12 +322,13 @@ object ReminderEngine {
                 val next = Recurrence.nextOccurrenceAfter(r, now)?.toInstant()?.toEpochMilli()
                 r.copy(nextAt = next, enabled = next != null)
             }
-            Kind.RANDOM -> r.copy(nextAt = r.nextAt ?: sampleRandom(s, pool, now, r.meanOverrideMillis), localDateTime = null, repeat = Repeat.NONE)
+            Kind.RANDOM -> r.copy(nextAt = r.nextAt ?: sampleRandom(s, pool, now, r), localDateTime = null, repeat = Repeat.NONE)
         }
     }
 
-    private fun sampleRandom(s: SettingsSnapshot, pool: Int, now: Instant, override: Long? = null): Long =
-        RandomScheduler.sampleNext(now.atZone(ZoneId.systemDefault()), s, pool, overrideMean = override).toInstant().toEpochMilli()
+    private fun sampleRandom(s: SettingsSnapshot, pool: Int, now: Instant, r: Reminder): Long =
+        RandomScheduler.sampleNext(now.atZone(ZoneId.systemDefault()), s, pool, overrideMean = r.meanOverrideMillis, overrideDays = r.randomDaysOrNull())
+            .toInstant().toEpochMilli()
 
     // ----------------------------------------------------------------- alarm
 

@@ -40,9 +40,12 @@ object RandomScheduler {
         return advanceByActiveMillis(from, gap, startHour, endHour, days)
     }
 
-    fun sampleNext(from: ZonedDateTime, settings: SettingsSnapshot, poolSize: Int, random: Random = Random.Default, overrideMean: Long? = null): ZonedDateTime {
+    fun sampleNext(
+        from: ZonedDateTime, settings: SettingsSnapshot, poolSize: Int, random: Random = Random.Default,
+        overrideMean: Long? = null, overrideDays: Set<DayOfWeek>? = null,
+    ): ZonedDateTime {
         val mean = overrideMean ?: effectiveMeanPerReminder(settings, poolSize)
-        return sampleNext(from, mean, settings.activeStartHour, settings.activeEndHour, random, settings.activeDaySet())
+        return sampleNext(from, mean, settings.activeStartHour, settings.activeEndHour, random, overrideDays ?: settings.activeDaySet())
     }
 
     /** Mean interval for one reminder given the frequency mode and how many random reminders are enabled. */

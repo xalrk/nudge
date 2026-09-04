@@ -58,6 +58,9 @@ data class Reminder(
     /** Random reminders only: personal average interval in millis, overriding the global slider. */
     val meanOverrideMillis: Long? = null,
 ) {
+    /** Random reminders: the weekdays this one may fire on, or null to use the global active days. */
+    fun randomDaysOrNull(): Set<DayOfWeek>? = if (isRandom && weekdays != 0) weekdaySet() else null
+
     fun excludedDateSet(): Set<LocalDate> =
         excludedDates.split(',').filter { it.isNotBlank() }.mapNotNull { runCatching { LocalDate.parse(it.trim()) }.getOrNull() }.toSet()
 
