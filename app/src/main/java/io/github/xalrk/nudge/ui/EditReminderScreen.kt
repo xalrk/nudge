@@ -1,5 +1,6 @@
 package io.github.xalrk.nudge.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.PaddingValues
@@ -141,6 +142,17 @@ fun EditReminderScreen(
         )
     }
 
+    /** The editable fields only, so two builds compare equal when nothing the user can change differs. */
+    fun signature(): Reminder = build().copy(id = 0, nextAt = null, snoozeAt = null, lastFiredAt = null, createdAt = 0, dedupeKey = "", zoneId = null)
+
+    var initial by remember { mutableStateOf<Reminder?>(null) }
+    LaunchedEffect(loaded) { if (loaded && initial == null) initial = signature() }
+    val dirty = initial != null && signature() != initial
+    var confirmDiscard by remember { mutableStateOf(false) }
+
+    fun leave() { if (dirty) confirmDiscard = true else onBack() }
+    BackHandler(enabled = dirty) { confirmDiscard = true }
+
     fun save() {
         if (isSeries && kind == Kind.SCHEDULED && repeat != Repeat.NONE) askScope = "save"
         else vm.save(build()) { onBack() }
@@ -150,7 +162,7 @@ fun EditReminderScreen(
         topBar = {
             TopAppBar(
                 title = { Text(if (isNew) "New reminder" else "Edit reminder") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+                navigationIcon = { IconButton(onClick = { leave() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
                 actions = {
                     if (!isNew) IconButton(onClick = { if (isSeries) askScope = "delete" else confirmDelete = true }) { Icon(Icons.Filled.Delete, "Delete") }
                     TextButton(enabled = canSave, onClick = { save() }) { Text("Save") }
@@ -301,6 +313,13 @@ fun EditReminderScreen(
             text = { TimePicker(state) },
         )
     }
+    if (confirmDiscard) AlertDialog(
+        onDismissRequest = { confirmDiscard = false },
+        title = { Text("Discard changes?") },
+        text = { Text("You have unsaved changes to this reminder.") },
+        confirmButton = { TextButton(onClick = { confirmDiscard = false; onBack() }) { Text("Discard") } },
+        dismissButton = { TextButton(onClick = { confirmDiscard = false }) { Text("Keep editing") } },
+    )
     if (confirmDelete) AlertDialog(
         onDismissRequest = { confirmDelete = false },
         title = { Text("Delete reminder?") },
