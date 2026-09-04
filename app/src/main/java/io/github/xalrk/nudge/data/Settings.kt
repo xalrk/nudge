@@ -21,6 +21,8 @@ enum class ThemeMode { SYSTEM, LIGHT, DARK }
 data class SettingsSnapshot(
     val themeMode: ThemeMode,
     val dynamicColor: Boolean,
+    /** ARGB accent used for the whole theme when dynamic color is off. */
+    val accentColor: Int,
     val meanIntervalMillis: Long,
     val frequencyMode: FrequencyMode,
     val activeStartHour: Int,
@@ -42,6 +44,10 @@ class Settings(context: Context) {
     var dynamicColor: Boolean
         get() = prefs.getBoolean(KEY_DYNAMIC, false)
         set(v) = prefs.edit().putBoolean(KEY_DYNAMIC, v).apply()
+
+    var accentColor: Int
+        get() = prefs.getInt(KEY_ACCENT, DEFAULT_ACCENT)
+        set(v) = prefs.edit().putInt(KEY_ACCENT, v or 0xFF000000.toInt()).apply()
 
     var meanIntervalMillis: Long
         get() = prefs.getLong(KEY_MEAN, DEFAULT_MEAN_MILLIS)
@@ -72,7 +78,7 @@ class Settings(context: Context) {
         get() = prefs.getString(KEY_LAST_UPDATE, null)
         set(v) = prefs.edit().putString(KEY_LAST_UPDATE, v).apply()
 
-    fun snapshot() = SettingsSnapshot(themeMode, dynamicColor, meanIntervalMillis, frequencyMode, activeStartHour, activeEndHour, showNextRandomTime, autoUpdateCheck)
+    fun snapshot() = SettingsSnapshot(themeMode, dynamicColor, accentColor, meanIntervalMillis, frequencyMode, activeStartHour, activeEndHour, showNextRandomTime, autoUpdateCheck)
 
     fun observe(): Flow<SettingsSnapshot> = callbackFlow {
         trySend(snapshot())
@@ -84,6 +90,7 @@ class Settings(context: Context) {
     companion object {
         private const val KEY_THEME = "theme_mode"
         private const val KEY_DYNAMIC = "dynamic_color"
+        private const val KEY_ACCENT = "accent_color"
         private const val KEY_MEAN = "mean_interval_millis"
         private const val KEY_MODE = "frequency_mode"
         private const val KEY_START = "active_start_hour"
@@ -91,6 +98,34 @@ class Settings(context: Context) {
         private const val KEY_SHOW_NEXT = "show_next_random"
         private const val KEY_AUTO_UPDATE = "auto_update_check"
         private const val KEY_LAST_UPDATE = "last_notified_update"
+
+        const val DEFAULT_ACCENT = 0xFF3D5AFE.toInt()
+
+        /** Hand-picked accents that read well on both white and true black. */
+        val ACCENT_PRESETS: List<Pair<String, Int>> = listOf(
+            "Indigo" to 0xFF3D5AFE.toInt(),
+            "Blue" to 0xFF1E88E5.toInt(),
+            "Teal" to 0xFF00897B.toInt(),
+            "Green" to 0xFF43A047.toInt(),
+            "Amber" to 0xFFF9A825.toInt(),
+            "Orange" to 0xFFF4511E.toInt(),
+            "Red" to 0xFFE53935.toInt(),
+            "Pink" to 0xFFD81B60.toInt(),
+            "Purple" to 0xFF8E24AA.toInt(),
+            "Violet" to 0xFF5E35B1.toInt(),
+            "Slate" to 0xFF546E7A.toInt(),
+            "Mono" to 0xFF212121.toInt(),
+        )
+
+        /** Parses "#RGB", "#RRGGBB", "RRGGBB"; returns null when invalid. */
+        fun parseHex(input: String): Int? {
+            val h = input.trim().removePrefix("#")
+            if (!h.all { it.isDigit() || it.lowercaseChar() in 'a'..'f' }) return null
+            val full = when (h.length) { 3 -> h.map { "$it$it" }.joinToString(""); 6 -> h; else -> return null }
+            return (0xFF000000L or full.toLong(16)).toInt()
+        }
+
+        fun toHex(argb: Int): String = "#%06X".format(argb and 0xFFFFFF)
 
         const val HOUR_MILLIS = 60L * 60L * 1000L
         const val DAY_MILLIS = 24L * HOUR_MILLIS

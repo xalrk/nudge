@@ -106,6 +106,7 @@ class NudgeViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setThemeMode(mode: ThemeMode) { settingsStore.themeMode = mode }
     fun setDynamicColor(on: Boolean) { settingsStore.dynamicColor = on }
+    fun setAccentColor(argb: Int) { settingsStore.accentColor = argb }
 
     fun fireRandomNow() = viewModelScope.launch {
         val ok = ReminderEngine.fireRandomNow(ctx())

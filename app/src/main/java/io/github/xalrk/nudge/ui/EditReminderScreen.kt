@@ -123,7 +123,6 @@ fun EditReminderScreen(vm: NudgeViewModel, id: Long, defaultKind: String, onBack
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
                 actions = {
                     if (!isNew) IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Filled.Delete, "Delete") }
-                    TextButton(enabled = canSave, onClick = { vm.save(build()) { onBack() } }) { Text("Save") }
                 },
             )
         }

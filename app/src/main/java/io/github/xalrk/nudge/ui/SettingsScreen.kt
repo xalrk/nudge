@@ -17,6 +17,24 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
@@ -93,6 +111,11 @@ fun SettingsScreen(vm: NudgeViewModel) {
                 Text("Use system accent color", Modifier.weight(1f))
                 Spacer(Modifier.width(16.dp))
                 Switch(checked = settings.dynamicColor, onCheckedChange = { vm.setDynamicColor(it) })
+            }
+            if (!settings.dynamicColor || Build.VERSION.SDK_INT < 31) {
+                Spacer(Modifier.height(12.dp))
+                Text("Accent color", style = MaterialTheme.typography.bodyLarge)
+                AccentPicker(current = settings.accentColor, onPick = { vm.setAccentColor(it) })
             }
 
             HorizontalDivider(Modifier.padding(vertical = 16.dp))
@@ -253,6 +276,45 @@ private fun CsvColumn(name: String, meaning: String) {
     Row {
         Text(name, Modifier.width(140.dp), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
         Text(meaning, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+@Composable
+private fun AccentPicker(current: Int, onPick: (Int) -> Unit) {
+    var hex by remember(current) { mutableStateOf(Settings.toHex(current)) }
+    val parsed = Settings.parseHex(hex)
+    Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            for ((name, argb) in Settings.ACCENT_PRESETS) {
+                val selected = argb == current
+                Box(
+                    Modifier.size(36.dp).clip(CircleShape)
+                        .background(Color(argb))
+                        .then(if (selected) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape) else Modifier)
+                        .clickable { onPick(argb) }
+                        .semantics { contentDescription = name },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (selected) Icon(Icons.Filled.Check, contentDescription = null, tint = if (Color(argb).luminance() < 0.4f) Color.White else Color.Black, modifier = Modifier.size(18.dp))
+                }
+            }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = hex,
+                onValueChange = { hex = it.take(7) },
+                label = { Text("Hex") },
+                singleLine = true,
+                isError = parsed == null,
+                modifier = Modifier.width(140.dp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { parsed?.let(onPick) }),
+                trailingIcon = { Box(Modifier.size(20.dp).clip(CircleShape).background(parsed?.let { Color(it) } ?: Color.Transparent)) },
+            )
+            TextButton(enabled = parsed != null && parsed != current, onClick = { parsed?.let(onPick) }) { Text("Apply") }
+        }
+        Text("Any #RRGGBB value works. Dark mode lightens the accent so it stays readable on black.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

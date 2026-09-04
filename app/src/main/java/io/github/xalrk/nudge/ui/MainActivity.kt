@@ -58,7 +58,7 @@ class MainActivity : ComponentActivity() {
                 val style = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark }
                 enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
             }
-            NudgeTheme(settings.themeMode, settings.dynamicColor) { NudgeApp(vm) }
+            NudgeTheme(settings.themeMode, settings.dynamicColor, settings.accentColor) { NudgeApp(vm) }
         }
     }
 
