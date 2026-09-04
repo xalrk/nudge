@@ -72,6 +72,8 @@ class NudgeViewModel(app: Application) : AndroidViewModel(app) {
         ReminderEngine.deleteFromSeries(ctx(), original, occurrence, scope); onDone()
     }
 
+    fun deleteHistoryEntry(eventId: Long) = viewModelScope.launch { ReminderEngine.deleteHistoryEntry(ctx(), eventId) }
+
     fun addCustomColor(argb: Int) { settingsStore.customColors = settingsStore.customColors + argb }
     fun removeCustomColor(argb: Int) { settingsStore.customColors = settingsStore.customColors - argb }
 

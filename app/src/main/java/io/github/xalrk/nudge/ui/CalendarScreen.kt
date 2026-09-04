@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -55,7 +56,7 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 
 /** One entry on a calendar day: either a future occurrence of a rule, or a notification that was delivered. */
-data class Occurrence(val at: ZonedDateTime, val title: String, val body: String, val reminderId: Long, val done: Boolean, val rule: String, val color: Int)
+data class Occurrence(val at: ZonedDateTime, val title: String, val body: String, val reminderId: Long, val done: Boolean, val rule: String, val color: Int, val eventId: Long? = null)
 
 @Composable
 fun CalendarScreen(vm: NudgeViewModel, onAdd: (LocalDate) -> Unit, onOpen: (Long, LocalDate?) -> Unit) {
@@ -85,7 +86,7 @@ fun CalendarScreen(vm: NudgeViewModel, onAdd: (LocalDate) -> Unit, onOpen: (Long
             val at = Fmt.instant(e.firedAt)
             if (at.isBefore(from) || !at.isBefore(to)) null
             else Occurrence(at, e.title, e.body, e.reminderId, done = true, color = Colors.faded(colorOf(byId[e.reminderId])),
-                rule = if (e.kind == Kind.RANDOM) "Random" else "Delivered")
+                rule = if (e.kind == Kind.RANDOM) "Random" else "Delivered", eventId = e.id)
         }
         val loggedKeys = logged.map { it.reminderId to it.at.toLocalDate() }.toSet()
         val inferred = reminders.filter { it.isScheduled && it.lastFiredAt != null }.flatMap { r ->
@@ -98,6 +99,7 @@ fun CalendarScreen(vm: NudgeViewModel, onAdd: (LocalDate) -> Unit, onOpen: (Long
     val dayDots = remember(occurrences) { occurrences.mapValues { (_, l) -> l.sortedBy { it.at }.map { it.color }.take(4) } }
     val today = LocalDate.now()
     val dayList = (occurrences[selectedDate] ?: emptyList()).sortedBy { it.at }
+    var orphan by remember { mutableStateOf<Occurrence?>(null) }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Nudge") }) },
@@ -126,11 +128,28 @@ fun CalendarScreen(vm: NudgeViewModel, onAdd: (LocalDate) -> Unit, onOpen: (Long
                 Text("Nothing scheduled this day.", Modifier.padding(16.dp, 4.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             items(dayList, key = { "${it.done}-${it.reminderId}-${it.at.toInstant().toEpochMilli()}" }) { occ ->
-                OccurrenceRow(occ, onClick = { if (reminders.any { it.id == occ.reminderId }) onOpen(occ.reminderId, occ.at.toLocalDate()) })
+                OccurrenceRow(occ, onClick = {
+                    if (reminders.any { it.id == occ.reminderId }) onOpen(occ.reminderId, occ.at.toLocalDate())
+                    else if (occ.eventId != null) orphan = occ
+                })
             }
             item { Box(Modifier.size(80.dp)) }
         }
     }
+    orphan?.let { o ->
+        OrphanDialog(o, onRemove = { o.eventId?.let(vm::deleteHistoryEntry); orphan = null }, onDismiss = { orphan = null })
+    }
+}
+
+@Composable
+private fun OrphanDialog(occ: Occurrence, onRemove: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Reminder no longer exists") },
+        text = { Text("\"${occ.title}\" was delivered on ${occ.at.format(Fmt.dayTime)} but its reminder has since been deleted. Remove this entry from the calendar?") },
+        confirmButton = { TextButton(onClick = onRemove) { Text("Remove") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Keep") } },
+    )
 }
 
 @Composable

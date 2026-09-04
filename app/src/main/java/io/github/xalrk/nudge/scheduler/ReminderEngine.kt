@@ -203,9 +203,27 @@ object ReminderEngine {
             }
         }
         if (updated.isNotEmpty()) dao.updateAll(updated)
+        repairBrokenRows(context, all)
         events(context).deleteOlderThan(now.toEpochMilli() - HISTORY_MILLIS)
         armAlarm(context)
     }
+
+    /**
+     * Self-healing pass run on every refresh (app open, boot, alarm): drops delivery entries
+     * that point at deleted reminders and disables scheduled reminders whose data can no
+     * longer produce an occurrence, so nothing unreachable lingers on the calendar.
+     */
+    private suspend fun repairBrokenRows(context: Context, all: List<Reminder>) {
+        val ev = events(context)
+        val orphans = ev.deleteOrphans()
+        if (orphans > 0) Log.i(TAG, "removed $orphans orphaned delivery entries")
+        val broken = all.filter { r ->
+            r.isScheduled && r.enabled && (r.localDateTimeOrNull() == null || (r.nextAt == null && Recurrence.nextOccurrenceAfter(r, Instant.now()) == null))
+        }
+        if (broken.isNotEmpty()) dao(context).updateAll(broken.map { it.copy(enabled = false, nextAt = null, snoozeAt = null) })
+    }
+
+    suspend fun deleteHistoryEntry(context: Context, eventId: Long) = lock.withLock { events(context).deleteById(eventId) }
 
     /** Called from the alarm receiver. Delivers everything due and advances the rows. */
     suspend fun fireDue(context: Context) = lock.withLock {
