@@ -2,6 +2,9 @@ package io.github.xalrk.nudge.ui
 
 import android.app.AlarmManager
 import android.content.Intent
+import android.net.Uri
+import io.github.xalrk.nudge.BuildConfig
+import io.github.xalrk.nudge.update.UpdateChecker
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings as SysSettings
@@ -185,7 +188,22 @@ fun SettingsScreen(vm: NudgeViewModel) {
             }
 
             HorizontalDivider(Modifier.padding(vertical = 16.dp))
-            Text("Nudge 1.0.2 · github.com/xalrk/nudge", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            SectionTitle("Updates")
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Check for updates automatically")
+                    Text("About once a day, only on a network and never on low battery. You get a notification when a newer version is on GitHub; tapping it opens the download page.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked = settings.autoUpdateCheck, onCheckedChange = { vm.setAutoUpdateCheck(it) })
+            }
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { vm.checkForUpdatesNow() }) { Text("Check now") }
+                TextButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(UpdateChecker.RELEASES_PAGE))) }) { Text("Releases page") }
+            }
+
+            HorizontalDivider(Modifier.padding(vertical = 16.dp))
+            Text("Nudge ${BuildConfig.VERSION_NAME} · github.com/xalrk/nudge", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(32.dp))
         }
     }

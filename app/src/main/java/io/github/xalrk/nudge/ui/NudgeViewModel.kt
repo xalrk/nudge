@@ -5,7 +5,10 @@ import android.database.sqlite.SQLiteConstraintException
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.xalrk.nudge.BuildConfig
 import io.github.xalrk.nudge.NudgeApp
+import io.github.xalrk.nudge.update.UpdateChecker
+import io.github.xalrk.nudge.update.UpdateWorker
 import io.github.xalrk.nudge.data.FiredEvent
 import io.github.xalrk.nudge.data.FrequencyMode
 import io.github.xalrk.nudge.data.Kind
@@ -83,6 +86,24 @@ class NudgeViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setShowNextRandom(show: Boolean) { settingsStore.showNextRandomTime = show }
+    fun setAutoUpdateCheck(on: Boolean) {
+        settingsStore.autoUpdateCheck = on
+        if (on) UpdateWorker.schedule(ctx()) else UpdateWorker.cancel(ctx())
+    }
+
+    fun checkForUpdatesNow() = viewModelScope.launch {
+        messages.tryEmit("Checking for updates…")
+        when (val r = UpdateChecker.check()) {
+            is UpdateChecker.Result.Available -> {
+                UpdateChecker.notify(ctx(), r.info)
+                settingsStore.lastNotifiedUpdate = r.info.version
+                messages.tryEmit("Nudge ${r.info.version} is available. Tap the notification to download it.")
+            }
+            UpdateChecker.Result.UpToDate -> messages.tryEmit("You have the latest version (${BuildConfig.VERSION_NAME}).")
+            is UpdateChecker.Result.Failed -> messages.tryEmit("Could not check: ${r.reason}")
+        }
+    }
+
     fun setThemeMode(mode: ThemeMode) { settingsStore.themeMode = mode }
     fun setDynamicColor(on: Boolean) { settingsStore.dynamicColor = on }
 

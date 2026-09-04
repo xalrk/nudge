@@ -26,6 +26,7 @@ data class SettingsSnapshot(
     val activeStartHour: Int,
     val activeEndHour: Int,
     val showNextRandomTime: Boolean,
+    val autoUpdateCheck: Boolean,
 ) {
     val activeHoursPerDay: Int get() = activeEndHour - activeStartHour
 }
@@ -62,7 +63,16 @@ class Settings(context: Context) {
         get() = prefs.getBoolean(KEY_SHOW_NEXT, true)
         set(v) = prefs.edit().putBoolean(KEY_SHOW_NEXT, v).apply()
 
-    fun snapshot() = SettingsSnapshot(themeMode, dynamicColor, meanIntervalMillis, frequencyMode, activeStartHour, activeEndHour, showNextRandomTime)
+    var autoUpdateCheck: Boolean
+        get() = prefs.getBoolean(KEY_AUTO_UPDATE, true)
+        set(v) = prefs.edit().putBoolean(KEY_AUTO_UPDATE, v).apply()
+
+    /** Version we already raised an update notification for, so it fires once per release. */
+    var lastNotifiedUpdate: String?
+        get() = prefs.getString(KEY_LAST_UPDATE, null)
+        set(v) = prefs.edit().putString(KEY_LAST_UPDATE, v).apply()
+
+    fun snapshot() = SettingsSnapshot(themeMode, dynamicColor, meanIntervalMillis, frequencyMode, activeStartHour, activeEndHour, showNextRandomTime, autoUpdateCheck)
 
     fun observe(): Flow<SettingsSnapshot> = callbackFlow {
         trySend(snapshot())
@@ -79,6 +89,8 @@ class Settings(context: Context) {
         private const val KEY_START = "active_start_hour"
         private const val KEY_END = "active_end_hour"
         private const val KEY_SHOW_NEXT = "show_next_random"
+        private const val KEY_AUTO_UPDATE = "auto_update_check"
+        private const val KEY_LAST_UPDATE = "last_notified_update"
 
         const val HOUR_MILLIS = 60L * 60L * 1000L
         const val DAY_MILLIS = 24L * HOUR_MILLIS

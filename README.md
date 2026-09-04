@@ -31,6 +31,9 @@ them at random moments during the day.
 - **Snooze** from the notification. Missed reminders (phone off) are delivered when
   the phone comes back, except random ones, which are quietly re-rolled so they
   never fire at night.
+- **Update notices.** About once a day (online, battery not low) the app asks
+  GitHub whether a newer release exists and, if so, posts a notification that
+  opens the download page. Can be switched off in Settings; "Check now" is there too.
 - **Flat light theme and true-black AMOLED dark theme.** Optional Material You
   accent on Android 12+.
 
