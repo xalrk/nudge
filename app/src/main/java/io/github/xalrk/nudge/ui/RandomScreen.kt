@@ -77,10 +77,12 @@ fun RandomScreen(vm: NudgeViewModel, onAdd: () -> Unit, onOpen: (Long) -> Unit) 
                             }
                         }
                     }) {
-                        val t = spin.value
+                        // spin.value is read inside the layer block, so each frame only updates the
+                        // GPU transform of this one layer; nothing recomposes or redraws until the face changes.
                         DieFace(
                             face,
                             Modifier.size(24.dp).graphicsLayer {
+                                val t = spin.value
                                 rotationY = t * 720f
                                 rotationX = t * 360f
                                 cameraDistance = 8f * density
@@ -97,18 +99,16 @@ fun RandomScreen(vm: NudgeViewModel, onAdd: () -> Unit, onOpen: (Long) -> Unit) 
         LazyColumn(Modifier.fillMaxSize().padding(padding)) {
             item {
                 Column(Modifier.padding(16.dp)) {
-                    Text(
-                        "These go off at unpredictable moments between ${hourLabel(settings.activeStartHour)} and ${hourLabel(settings.activeEndHour)} (configurable in Settings).",
-                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    val detail = when (settings.frequencyMode) {
-                        FrequencyMode.PER_REMINDER -> "Each one fires ${Settings.describeInterval(settings.meanIntervalMillis)} (configurable in Settings)."
-                        FrequencyMode.WHOLE_POOL -> "One of them fires ${Settings.describeInterval(settings.meanIntervalMillis)} (configurable in Settings)."
+                    val hours = "between ${hourLabel(settings.activeStartHour)} and ${hourLabel(settings.activeEndHour)}"
+                    val rate = Settings.describeInterval(settings.meanIntervalMillis)
+                    val text = when (settings.frequencyMode) {
+                        FrequencyMode.PER_REMINDER -> "Each of these fires at an unpredictable moment $hours, $rate on average. Both are configurable in Settings."
+                        FrequencyMode.WHOLE_POOL -> "One of these fires at an unpredictable moment $hours, $rate on average. Both are configurable in Settings."
                     }
-                    Text(detail, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (enabledCount > 1 && settings.frequencyMode == FrequencyMode.PER_REMINDER) {
-                        Text("With $enabledCount enabled that is ${Settings.describeInterval(overallMean.coerceAtLeast(Settings.MIN_MEAN_MILLIS))} overall.",
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("With $enabledCount enabled, that adds up to ${Settings.describeInterval(overallMean.coerceAtLeast(Settings.MIN_MEAN_MILLIS))} overall.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
                     }
                 }
             }
