@@ -14,6 +14,7 @@ class SettingsTest {
         assertNull(Settings.parseHex("#GGGGGG"))
         assertNull(Settings.parseHex(""))
         assertEquals("#3D5AFE", Settings.toHex(0xFF3D5AFE.toInt()))
+        assertEquals(Settings.DEFAULT_ACCENT, Settings.ACCENT_PRESETS.first().second)
     }
 
     @Test fun sliderRoundTrip() {

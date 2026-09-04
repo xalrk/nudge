@@ -129,10 +129,11 @@ class Settings(context: Context) {
         private const val KEY_LAST_UPDATE = "last_notified_update"
 
         const val ALL_DAYS = 0x7F
-        const val DEFAULT_ACCENT = 0xFF3D5AFE.toInt()
+        const val DEFAULT_ACCENT = 0xFF008DCA.toInt()
 
         /** Hand-picked accents that read well on both white and true black. */
         val ACCENT_PRESETS: List<Pair<String, Int>> = listOf(
+            "Nudge blue" to 0xFF008DCA.toInt(),
             "Indigo" to 0xFF3D5AFE.toInt(),
             "Blue" to 0xFF1E88E5.toInt(),
             "Teal" to 0xFF00897B.toInt(),
