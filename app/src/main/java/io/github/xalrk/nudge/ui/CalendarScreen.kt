@@ -92,7 +92,7 @@ fun CalendarScreen(vm: NudgeViewModel, onAdd: () -> Unit, onOpen: (Long) -> Unit
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Nudge") }) },
-        floatingActionButton = { FloatingActionButton(onClick = onAdd) { Icon(Icons.Filled.Add, contentDescription = "Add reminder") } },
+        floatingActionButton = { FloatingActionButton(onClick = onAdd, containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) { Icon(Icons.Filled.Add, contentDescription = "Add reminder") } },
     ) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding)) {
             item {
