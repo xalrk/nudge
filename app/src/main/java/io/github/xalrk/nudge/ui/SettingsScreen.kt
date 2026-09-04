@@ -91,6 +91,7 @@ fun SettingsScreen(vm: NudgeViewModel) {
             Text("Dark mode is true black for AMOLED screens.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (Build.VERSION.SDK_INT >= 31) Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Use system accent color", Modifier.weight(1f))
+                Spacer(Modifier.width(16.dp))
                 Switch(checked = settings.dynamicColor, onCheckedChange = { vm.setDynamicColor(it) })
             }
 
@@ -149,6 +150,7 @@ fun SettingsScreen(vm: NudgeViewModel) {
             Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("Show next random time", Modifier.weight(1f))
+                Spacer(Modifier.width(16.dp))
                 Switch(checked = settings.showNextRandomTime, onCheckedChange = { vm.setShowNextRandom(it) })
             }
 
@@ -195,6 +197,7 @@ fun SettingsScreen(vm: NudgeViewModel) {
                     Text("About once a day, only on a network and never on low battery. You get a notification when a newer version is on GitHub; tapping it opens the download page.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+                Spacer(Modifier.width(16.dp))
                 Switch(checked = settings.autoUpdateCheck, onCheckedChange = { vm.setAutoUpdateCheck(it) })
             }
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

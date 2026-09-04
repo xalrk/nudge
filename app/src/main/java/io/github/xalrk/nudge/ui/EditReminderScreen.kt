@@ -141,7 +141,7 @@ fun EditReminderScreen(vm: NudgeViewModel, id: Long, defaultKind: String, onBack
                 Text("Fires at a random moment during your active hours, at the average frequency set in Settings.",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (!isNew) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Enabled", Modifier.weight(1f)); Switch(checked = enabled, onCheckedChange = { enabled = it })
+                    Text("Enabled", Modifier.weight(1f)); Spacer(Modifier.width(16.dp)); Switch(checked = enabled, onCheckedChange = { enabled = it })
                 }
             } else {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -196,6 +196,7 @@ fun EditReminderScreen(vm: NudgeViewModel, id: Long, defaultKind: String, onBack
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                    Spacer(Modifier.width(16.dp))
                     Switch(checked = floating, onCheckedChange = { floating = it })
                 }
 
