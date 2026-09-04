@@ -9,7 +9,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -23,6 +22,17 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.foundation.Canvas
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import kotlin.random.Random
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.graphics.graphicsLayer
@@ -52,26 +62,29 @@ fun RandomScreen(vm: NudgeViewModel, onAdd: () -> Unit, onOpen: (Long) -> Unit) 
             TopAppBar(
                 title = { Text("Random reminders") },
                 actions = {
-                    // A quick tumble so the re-roll feels like rolling a die.
+                    // Roll: the die spins in place around two axes, flicks through faces, lands on a random one.
                     val spin = remember { Animatable(0f) }
+                    var face by remember { mutableIntStateOf(Random.nextInt(1, 7)) }
                     val scope = rememberCoroutineScope()
                     IconButton(onClick = {
                         vm.rerollRandom()
-                        // Play even when the system "remove animations" setting scales durations to zero.
                         scope.launch(object : MotionDurationScale { override val scaleFactor: Float get() = 1f }) {
+                            val flicker = List(14) { Random.nextInt(1, 7) }
+                            val landing = Random.nextInt(1, 7)
                             spin.snapTo(0f)
-                            spin.animateTo(1f, tween(1100, easing = FastOutSlowInEasing))
+                            spin.animateTo(1f, tween(1000, easing = FastOutSlowInEasing)) {
+                                face = if (value < 0.8f) flicker[(value / 0.8f * flicker.size).toInt().coerceIn(0, flicker.lastIndex)] else landing
+                            }
                         }
                     }) {
                         val t = spin.value
-                        // Three spins that slow down, a hop up and back, a swell, and a settling wobble.
-                        val wobble = if (t > 0.75f) sin((t - 0.75f) / 0.25f * PI.toFloat() * 2f) * 18f * (1f - t) else 0f
-                        Icon(
-                            Icons.Filled.Casino, contentDescription = "Re-roll times",
-                            modifier = Modifier.graphicsLayer {
-                                rotationZ = t * 1080f + wobble
-                                translationY = -sin(t * PI.toFloat()) * 28.dp.toPx()
-                                val s = 1f + 0.5f * sin(t * PI.toFloat())
+                        DieFace(
+                            face,
+                            Modifier.size(24.dp).graphicsLayer {
+                                rotationY = t * 720f
+                                rotationX = t * 360f
+                                cameraDistance = 8f * density
+                                val s = 1f + 0.15f * sin(t * PI.toFloat())
                                 scaleX = s; scaleY = s
                             },
                         )
@@ -114,6 +127,29 @@ fun RandomScreen(vm: NudgeViewModel, onAdd: () -> Unit, onOpen: (Long) -> Unit) 
             }
             item { Box(Modifier.size(80.dp)) }
         }
+    }
+}
+
+/** A die face drawn in the current content color: rounded outline plus 1..6 pips. */
+@Composable
+private fun DieFace(face: Int, modifier: Modifier = Modifier) {
+    val color = LocalContentColor.current
+    Canvas(modifier.semantics { contentDescription = "Re-roll times" }) {
+        val w = size.width
+        val stroke = w * 0.09f
+        drawRoundRect(color, topLeft = Offset(stroke / 2, stroke / 2), size = Size(w - stroke, w - stroke),
+            cornerRadius = CornerRadius(w * 0.22f), style = Stroke(stroke))
+        val c = w / 2
+        val o = w * 0.24f
+        val pips: List<Offset> = when (face.coerceIn(1, 6)) {
+            1 -> listOf(Offset(c, c))
+            2 -> listOf(Offset(c - o, c - o), Offset(c + o, c + o))
+            3 -> listOf(Offset(c - o, c - o), Offset(c, c), Offset(c + o, c + o))
+            4 -> listOf(Offset(c - o, c - o), Offset(c + o, c - o), Offset(c - o, c + o), Offset(c + o, c + o))
+            5 -> listOf(Offset(c - o, c - o), Offset(c + o, c - o), Offset(c, c), Offset(c - o, c + o), Offset(c + o, c + o))
+            else -> listOf(Offset(c - o, c - o), Offset(c + o, c - o), Offset(c - o, c), Offset(c + o, c), Offset(c - o, c + o), Offset(c + o, c + o))
+        }
+        for (p in pips) drawCircle(color, radius = w * 0.085f, center = p)
     }
 }
 
