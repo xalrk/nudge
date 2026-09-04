@@ -24,6 +24,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.graphics.graphicsLayer
 import kotlinx.coroutines.launch
 import kotlin.math.PI
@@ -56,7 +57,8 @@ fun RandomScreen(vm: NudgeViewModel, onAdd: () -> Unit, onOpen: (Long) -> Unit) 
                     val scope = rememberCoroutineScope()
                     IconButton(onClick = {
                         vm.rerollRandom()
-                        scope.launch {
+                        // Play even when the system "remove animations" setting scales durations to zero.
+                        scope.launch(object : MotionDurationScale { override val scaleFactor: Float get() = 1f }) {
                             spin.snapTo(0f)
                             spin.animateTo(1f, tween(1100, easing = FastOutSlowInEasing))
                         }
