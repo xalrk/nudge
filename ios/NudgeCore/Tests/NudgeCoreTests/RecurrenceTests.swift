@@ -73,7 +73,7 @@ final class RecurrenceTests: XCTestCase {
 
     func testPinnedZoneStaysFixedWhenDeviceZoneDiffers() {
         let n = Recurrence.nextOccurrenceAfter(sched("2026-09-10T09:00"), z("2026-09-01T00:00", TimeZone(identifier: "UTC")!).instant)!
-        XCTAssertEqual(n.withZone(TimeZone(identifier: "UTC")!).description, "2026-09-10T15:00+00:00[UTC]")
+        XCTAssertEqual(n.instant, LocalDateTime(iso: "2026-09-10T15:00")!.atZone(TimeZone(identifier: "UTC")!).instant)
     }
 
     func testExcludedDatesAreSkipped() {
