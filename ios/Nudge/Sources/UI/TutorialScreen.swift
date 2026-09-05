@@ -128,7 +128,7 @@ private struct TutorialArt: View {
             let top: Double = Double(size.height) * 0.25
             let bandH: Double = Double(size.height) * 0.45
             for d in 0..<days {
-                let rect = CGRect(x: Double(d) * colW + 3, y: top, width: colW - 6, height: bandH)
+                let rect = CGRect(x: Double(d) * colW + 3.0, y: top, width: colW - 6.0, height: bandH)
                 ctx.fill(Path(roundedRect: rect, cornerRadius: 6), with: .color(theme.surfaceContainerHigh))
             }
             for h in hits where h.0 <= t {
@@ -139,7 +139,10 @@ private struct TutorialArt: View {
                 let c = CGPoint(x: cx, y: cy)
                 ctx.fill(Path(ellipseIn: CGRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r)), with: .color(theme.primary))
             }
-            var line = Path(); line.move(to: CGPoint(x: t * size.width, y: top - 6)); line.addLine(to: CGPoint(x: t * size.width, y: top + bandH + 6))
+            let lx: Double = t * Double(size.width)
+            var line = Path()
+            line.move(to: CGPoint(x: lx, y: top - 6.0))
+            line.addLine(to: CGPoint(x: lx, y: top + bandH + 6.0))
             ctx.stroke(line, with: .color(theme.primary.opacity(0.6)), lineWidth: 2)
         }
         .frame(height: 150)
@@ -152,7 +155,7 @@ private struct TutorialArt: View {
             let today = 3
             let faded = Color(argb: Colors.faded(theme.accentArgb))
             for d in 0..<days {
-                let cx = Double(d) * colW + colW / 2
+                let cx: Double = Double(d) * colW + colW / 2.0
                 let cy: Double = Double(size.height) * 0.45
                 if d == today {
                     ctx.fill(Path(roundedRect: CGRect(x: cx - 16, y: cy - 16, width: 32, height: 32), cornerRadius: 10), with: .color(theme.primary))

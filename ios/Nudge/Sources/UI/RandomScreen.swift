@@ -26,15 +26,9 @@ struct RandomScreen: View {
                     LazyVStack(alignment: .leading, spacing: 0) {
                         PauseBanner(settings: s) { engine.setPausedUntil(0) }
                         VStack(alignment: .leading, spacing: 4) {
-                            let hours = "between \(SettingsMath.hourLabel(s.activeStartHour)) and \(SettingsMath.hourLabel(s.activeEndHour))"
-                            let rate = SettingsMath.describeInterval(s.meanIntervalMillis)
-                            Text(s.frequencyMode == .perReminder
-                                 ? "Each of these fires at an unpredictable moment \(hours), \(rate) on average. Both are configurable in Settings."
-                                 : "One of these fires at an unpredictable moment \(hours), \(rate) on average. Both are configurable in Settings.")
-                                .font(.subheadline).foregroundColor(theme.onSurfaceVariant)
+                            Text(headline(s)).font(.subheadline).foregroundColor(theme.onSurfaceVariant)
                             if enabledCount > 1 && s.frequencyMode == .perReminder {
-                                Text("With \(enabledCount) enabled, that adds up to \(SettingsMath.describeInterval(max(overallMean, SettingsMath.minMeanMillis))) overall.")
-                                    .font(.footnote).foregroundColor(theme.onSurfaceVariant)
+                                Text(sumLine(enabledCount, overallMean)).font(.footnote).foregroundColor(theme.onSurfaceVariant)
                             }
                         }
                         .padding(16)
@@ -42,15 +36,7 @@ struct RandomScreen: View {
                             Text("No random reminders yet. Tap + or import a CSV file from Settings.").foregroundColor(theme.onSurfaceVariant).padding(16)
                         }
                         ForEach(random) { r in
-                            let rate = (r.meanOverrideMillis.map { " · " + SettingsMath.describeInterval($0) } ?? "") +
-                                (r.randomDaysOrNil().map { d in " · " + DayOfWeek.allCases.filter { d.contains($0) }.map { String($0.name.prefix(2).capitalized) }.joined(separator: " ") } ?? "")
-                            let sub: String = {
-                                if !r.enabled { return "Paused" }
-                                guard let n = r.nextAt else { return "Waiting" }
-                                if s.showNextRandomTime { return "Next " + Fmt.relative(n) + " · " + Fmt.dayTime(n) + rate }
-                                return "Sometime soon" + rate
-                            }()
-                            ReminderRow(r: r, subtitle: sub, color: engine.colorOf(r), onTap: { router.edit = EditRequest(id: r.id) }, onToggle: { engine.setEnabled(r.id, $0) })
+                            ReminderRow(r: r, subtitle: subtitle(r, s), color: engine.colorOf(r), onTap: { router.edit = EditRequest(id: r.id) }, onToggle: { engine.setEnabled(r.id, $0) })
                         }
                         Color.clear.frame(height: 88)
                     }
@@ -70,6 +56,30 @@ struct RandomScreen: View {
             }
         }
         .onAppear { toAngles = fromAngles }
+    }
+
+    private func headline(_ s: SettingsSnapshot) -> String {
+        let hours = "between \(SettingsMath.hourLabel(s.activeStartHour)) and \(SettingsMath.hourLabel(s.activeEndHour))"
+        let rate = SettingsMath.describeInterval(s.meanIntervalMillis)
+        let who = s.frequencyMode == .perReminder ? "Each" : "One"
+        return "\(who) of these fires at an unpredictable moment \(hours), \(rate) on average. Both are configurable in Settings."
+    }
+
+    private func sumLine(_ enabledCount: Int, _ overallMean: Int64) -> String {
+        "With \(enabledCount) enabled, that adds up to \(SettingsMath.describeInterval(max(overallMean, SettingsMath.minMeanMillis))) overall."
+    }
+
+    private func subtitle(_ r: Reminder, _ s: SettingsSnapshot) -> String {
+        var rate = ""
+        if let m = r.meanOverrideMillis { rate += " · " + SettingsMath.describeInterval(m) }
+        if let d = r.randomDaysOrNil() {
+            let names = DayOfWeek.allCases.filter { d.contains($0) }.map { String($0.name.prefix(2)).capitalized }
+            rate += " · " + names.joined(separator: " ")
+        }
+        if !r.enabled { return "Paused" }
+        guard let n = r.nextAt else { return "Waiting" }
+        if s.showNextRandomTime { return "Next " + Fmt.relative(n) + " · " + Fmt.dayTime(n) + rate }
+        return "Sometime soon" + rate
     }
 
     private func roll() {
