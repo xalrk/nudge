@@ -369,6 +369,6 @@ public enum ImportExport {
     }
 }
 
-extension String {
-    var isBlank: Bool { allSatisfy { $0.isWhitespace } }
+public extension String {
+    public var isBlank: Bool { allSatisfy { $0.isWhitespace } }
 }

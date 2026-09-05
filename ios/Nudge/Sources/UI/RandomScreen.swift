@@ -18,7 +18,8 @@ struct RandomScreen: View {
         let s = settings.snapshot
         let random = store.state.reminders.filter { $0.isRandom }
         let enabledCount = random.filter { $0.enabled }.count
-        let overallMean: Int64 = s.frequencyMode == .perReminder ? (enabledCount > 0 ? s.meanIntervalMillis / Int64(enabledCount) : 0) : s.meanIntervalMillis
+        let perReminderMean: Int64 = enabledCount > 0 ? s.meanIntervalMillis / Int64(enabledCount) : 0
+        let overallMean: Int64 = s.frequencyMode == .perReminder ? perReminderMean : s.meanIntervalMillis
         Screen {
             ZStack(alignment: .bottomTrailing) {
                 ScrollView {

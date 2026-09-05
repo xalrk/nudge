@@ -124,9 +124,9 @@ private struct TutorialArt: View {
     private var randomWeek: some View {
         Canvas { ctx, size in
             let days = 7
-            let colW = size.width / Double(days)
-            let top = size.height * 0.25
-            let bandH = size.height * 0.45
+            let colW: Double = Double(size.width) / Double(days)
+            let top: Double = Double(size.height) * 0.25
+            let bandH: Double = Double(size.height) * 0.45
             for d in 0..<days {
                 let rect = CGRect(x: Double(d) * colW + 3, y: top, width: colW - 6, height: bandH)
                 ctx.fill(Path(roundedRect: rect, cornerRadius: 6), with: .color(theme.surfaceContainerHigh))
@@ -134,7 +134,9 @@ private struct TutorialArt: View {
             for h in hits where h.0 <= t {
                 let age = min(max((t - h.0) / 0.12, 0), 1)
                 let r = 5.0 * (1 + 0.6 * (1 - age))
-                let c = CGPoint(x: h.0 * size.width, y: top + bandH * (0.15 + 0.7 * h.1))
+                let cx: Double = h.0 * Double(size.width)
+                let cy: Double = top + bandH * (0.15 + 0.7 * h.1)
+                let c = CGPoint(x: cx, y: cy)
                 ctx.fill(Path(ellipseIn: CGRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r)), with: .color(theme.primary))
             }
             var line = Path(); line.move(to: CGPoint(x: t * size.width, y: top - 6)); line.addLine(to: CGPoint(x: t * size.width, y: top + bandH + 6))
@@ -146,12 +148,12 @@ private struct TutorialArt: View {
     private var calendarStrip: some View {
         Canvas { ctx, size in
             let days = 7
-            let colW = size.width / Double(days)
+            let colW: Double = Double(size.width) / Double(days)
             let today = 3
             let faded = Color(argb: Colors.faded(theme.accentArgb))
             for d in 0..<days {
                 let cx = Double(d) * colW + colW / 2
-                let cy = size.height * 0.45
+                let cy: Double = Double(size.height) * 0.45
                 if d == today {
                     ctx.fill(Path(roundedRect: CGRect(x: cx - 16, y: cy - 16, width: 32, height: 32), cornerRadius: 10), with: .color(theme.primary))
                 } else {
