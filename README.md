@@ -53,6 +53,13 @@ them at random moments during the day.
 - **Flat light theme and true-black AMOLED dark theme.** Pick the accent from a
   set of presets or type any hex value; optional Material You accent on Android 12+.
 
+## iPhone
+
+There is a native iOS port in [`ios/`](ios/) with the same features and CSV format. It is
+not in the App Store; it is installed with AltStore using a free Apple ID. See
+[`ios/SIDELOAD.md`](ios/SIDELOAD.md) for the step-by-step guide and
+[`ios/README.md`](ios/README.md) for how it is built.
+
 ## Battery
 
 Nudge has no background service and never polls. It keeps exactly one alarm with

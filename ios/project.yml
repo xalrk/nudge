@@ -1,0 +1,39 @@
+# XcodeGen spec. `xcodegen generate` (in this folder) writes Nudge.xcodeproj; the project
+# file itself is not committed, so there is nothing to merge by hand.
+name: Nudge
+options:
+  bundleIdPrefix: io.github.xalrk
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+  generateEmptySchemes: false
+packages:
+  NudgeCore:
+    path: NudgeCore
+targets:
+  Nudge:
+    type: application
+    platform: iOS
+    sources:
+      - path: Nudge/Sources
+      - path: Nudge/Resources
+    dependencies:
+      - package: NudgeCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.xalrk.nudge
+        PRODUCT_NAME: Nudge
+        INFOPLIST_FILE: Nudge/Info.plist
+        MARKETING_VERSION: "1.1.2"
+        CURRENT_PROJECT_VERSION: "14"
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_PREVIEWS: NO
+        # Signing is done by AltStore/Sideloadly on the user's computer, not here.
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: ""
+        DEVELOPMENT_TEAM: ""
+    scheme:
+      testTargets: []
+      gatherCoverageData: false

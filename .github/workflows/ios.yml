@@ -1,0 +1,67 @@
+# Builds the iOS app on GitHub's free macOS runners and publishes an unsigned .ipa.
+# Nothing here needs a paid Apple developer account: the file is signed later, on the
+# installing person's own computer, by AltStore or Sideloadly with their free Apple ID.
+name: iOS
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+    paths: ["ios/**", ".github/workflows/ios.yml"]
+  pull_request:
+    paths: ["ios/**", ".github/workflows/ios.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  ipa:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: xcodebuild -version && swift --version
+
+      - name: Core tests
+        run: swift test --package-path ios/NudgeCore
+
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          cd ios && xcodegen generate
+
+      - name: Build (unsigned)
+        run: |
+          xcodebuild -project ios/Nudge.xcodeproj -scheme Nudge -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath ios/build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" DEVELOPMENT_TEAM="" \
+            -skipPackagePluginValidation build 2>&1 | tee build.log | grep -E "error:|warning: (unre|dep)|BUILD|Compiling|Linking" || true
+          grep -q "BUILD SUCCEEDED" build.log
+
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: build.log
+
+      - name: Package .ipa
+        run: |
+          APP=ios/build/Build/Products/Release-iphoneos/Nudge.app
+          test -d "$APP"
+          rm -rf Payload && mkdir Payload && cp -R "$APP" Payload/
+          zip -qr "nudge-ios-${GITHUB_REF_NAME//\//-}.ipa" Payload
+          ls -la nudge-ios-*.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nudge-ios-ipa
+          path: nudge-ios-*.ipa
+
+      - name: Attach .ipa to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: nudge-ios-*.ipa
